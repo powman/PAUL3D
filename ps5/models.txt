@@ -1,0 +1,14 @@
+# The models PAUL3D can download itself (GET /api/models, POST /api/downloads). One line a file:
+#   group sha256 size repo revision path dest licence
+# dest is under /data/PAUL3D. mesh-q4 is tools/weights.sha256's q4 set; the licence is the page to read before downloading.
+mesh-q4 10c5dd4dcac904cf81c9a16180eb66f167dd52ab55867f54a44567b0b2babbc1 882749024 ilintar/trellis2-gguf a57397bd3d351599d9729fc144b3f87c3f87d65b q4/birefnet.gguf models/q4/birefnet.gguf https://huggingface.co/ilintar/trellis2-gguf
+mesh-q4 6473cf96fd275bf84f5cc0556975a2abaa10b641e4a07101dcad561df1917ef2 172662976 ilintar/trellis2-gguf a57397bd3d351599d9729fc144b3f87c3f87d65b q4/dinov3.gguf models/q4/dinov3.gguf https://huggingface.co/ilintar/trellis2-gguf
+mesh-q4 79a52ddfed3454f724683940c11cfbfcf76c427ab3b7fdeb4c3cfc6d26647de4 845423552 ilintar/trellis2-gguf a57397bd3d351599d9729fc144b3f87c3f87d65b q4/shape_dec.gguf models/q4/shape_dec.gguf https://huggingface.co/ilintar/trellis2-gguf
+mesh-q4 54e49e3408b9f77bdc85c3f5a400a58a1d9fc091e111986eda7caeaea621b305 730520576 ilintar/trellis2-gguf a57397bd3d351599d9729fc144b3f87c3f87d65b q4/shape_flow_1024.gguf models/q4/shape_flow_1024.gguf https://huggingface.co/ilintar/trellis2-gguf
+mesh-q4 de7b87a92280035258c94314258e3b8314de39e5f001eac1ada0b4087785fb63 730520576 ilintar/trellis2-gguf a57397bd3d351599d9729fc144b3f87c3f87d65b q4/shape_flow_512.gguf models/q4/shape_flow_512.gguf https://huggingface.co/ilintar/trellis2-gguf
+mesh-q4 2790b5eecb261cc877d9bf175ce2bd6dd48cd65be8c042c5f5bc023dfca01cf7 147379392 ilintar/trellis2-gguf a57397bd3d351599d9729fc144b3f87c3f87d65b q4/ss_dec.gguf models/q4/ss_dec.gguf https://huggingface.co/ilintar/trellis2-gguf
+mesh-q4 a43c6393ee4a763a03e382de750d4f62752bacf969940442fd856230e62b88c2 730496672 ilintar/trellis2-gguf a57397bd3d351599d9729fc144b3f87c3f87d65b q4/ss_flow.gguf models/q4/ss_flow.gguf https://huggingface.co/ilintar/trellis2-gguf
+mesh-q4 20b208e402db907c6800dd4ad486a0d6e927e4511a6ff87fb51049794988927b 845414272 ilintar/trellis2-gguf a57397bd3d351599d9729fc144b3f87c3f87d65b q4/tex_dec.gguf models/q4/tex_dec.gguf https://huggingface.co/ilintar/trellis2-gguf
+mesh-q4 028d3be82075f8a4d8b4bd08985e1215ac3783ed332dbf7e8fd6535fcdd3d5a8 730548224 ilintar/trellis2-gguf a57397bd3d351599d9729fc144b3f87c3f87d65b q4/tex_flow_1024.gguf models/q4/tex_flow_1024.gguf https://huggingface.co/ilintar/trellis2-gguf
+mesh-q4 fff7bca6418ad607b8b9ff24034ff63f591d0a9b72f308960bffd6f5cd17390b 730548224 ilintar/trellis2-gguf a57397bd3d351599d9729fc144b3f87c3f87d65b q4/tex_flow_512.gguf models/q4/tex_flow_512.gguf https://huggingface.co/ilintar/trellis2-gguf
+text-qwen35-9b 03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8 5680522464 unsloth/Qwen3.5-9B-GGUF 3885219b6810b007914f3a7950a8d1b469d598a5 Qwen3.5-9B-Q4_K_M.gguf models/text/Qwen3.5-9B-Q4_K_M.gguf https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
