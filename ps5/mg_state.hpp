@@ -24,6 +24,7 @@ constexpr const char * kMgDir  = "/data/PAUL3D";
 constexpr const char * kMgJobs = "/data/PAUL3D/jobs";
 constexpr const char * kMgIn   = "/data/PAUL3D/in";
 constexpr const char * kMgOut  = "/data/PAUL3D/out";
+constexpr const char * kMgText = "/data/PAUL3D/text";   // answers of the text engine (mg_textjob.hpp)
 
 // Serves the web interface; returns when the server stops.
 void mg_web_run(int port);

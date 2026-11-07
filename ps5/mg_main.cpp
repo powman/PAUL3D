@@ -28,7 +28,10 @@
 
 #include "ggml-alloc.h"
 #include "ggml-backend.h"
+#include "mg_queue.hpp"
 #include "mg_state.hpp"
+#include "mg_text.hpp"
+#include "mg_textjob.hpp"
 #include "paul3d_threads.h"
 
 // No Vulkan loader on the console: the four entry points ggml-vulkan links against go to RADV.
@@ -393,17 +396,97 @@ int run_job(const std::string & name, const std::string & line) {
 }
 
 // The first *.job in /data/PAUL3D/jobs by name, or "".
-std::string next_job() {
+std::vector<std::string> job_files() {
     std::vector<std::string> names;
     if (DIR * d = opendir(kJobs)) {
-        while (dirent * e = readdir(d)) {
-            const std::string n = e->d_name;
-            if (n.size() > 4 && n.compare(n.size() - 4, 4, ".job") == 0) names.push_back(n);
-        }
+        while (dirent * e = readdir(d)) names.push_back(e->d_name);
         closedir(d);
     }
-    std::sort(names.begin(), names.end());
-    return names.empty() ? "" : names.front();
+    return names;
+}
+
+// The next job of any kind (mesh, text, download): mg_queue.hpp.
+std::string next_job() { return mg::next_job(job_files()); }
+
+std::string slurp_file(const std::string & p) { std::ifstream f(p, std::ios::binary); std::stringstream s; s << f.rdbuf(); return s.str(); }
+
+// One text request with the model loaded: the answer goes to text/<id>.txt as it is made (mg_textjob.hpp).
+void run_text_job(mg::TextEngine & eng, const std::string & name) {
+    const std::string id = name.substr(0, name.size() - 8), base = std::string(kJobs) + "/" + id;
+    rename((base + ".textjob").c_str(), (base + ".textrunning").c_str());
+    mg::TextJob job;
+    std::string err;
+    if (!mg::parse_text_job(slurp_file(base + ".textrunning"), job, err)) {
+        mg::write_text_done(kMgText, id, "failed", err);
+        unlink((base + ".textrunning").c_str());
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lk(g_mg.mu);
+        g_mg.job = id; g_mg.stage = "texto: " + eng.model_name(); g_mg.job_t0 = mg_now();
+    }
+    std::printf("paul3d: TEXT %s START (%zu messages, max %d tokens)\n", id.c_str(), job.messages.size(), job.max_tokens);
+    const double t0 = mg_now();
+    double last = t0;
+    size_t pieces = 0;
+    std::string so_far, out;
+    const bool ok = eng.chat(job.messages, job.max_tokens, job.temperature, [&](const std::string & p) {
+        so_far += p; pieces++;
+        if (mg_now() - last > 0.25) { mg::write_text_partial(kMgText, id, so_far); last = mg_now(); }
+        return true;
+    }, out, err);
+    mg::write_text_partial(kMgText, id, out);
+    mg::write_text_done(kMgText, id, ok ? "done" : "failed", ok ? "" : err);
+    unlink((base + ".textrunning").c_str());
+    const double secs = mg_now() - t0;
+    std::printf("paul3d: TEXT %s DONE ok=%d %zu tokens in %.1f s (%.1f tokens/s)\n", id.c_str(), ok, pieces, secs, secs > 0 ? pieces / secs : 0.0);
+    std::lock_guard<std::mutex> lk(g_mg.mu);
+    g_mg.job.clear(); g_mg.stage = "texto: pronto"; g_mg.progress.clear();
+}
+
+// The text mode: the model is loaded once and answers the text requests one after the other, until another kind of
+// job comes or nothing comes for a while (mg::text_mode_decision). True: the title should start over (memory used).
+bool text_mode() {
+    mkdir(kMgText, 0777);
+    mkdir((std::string(kDir) + "/models/text").c_str(), 0777);
+    const std::string model = mg::find_text_model({std::string(kDir) + "/models/text", "/data/PS5LM/models"});
+    auto fail_first = [&](const std::string & error) {
+        const std::string name = next_job();
+        if (mg::kind_of(name) != mg::JobKind::text) return;
+        const std::string id = name.substr(0, name.size() - 8);
+        mg::write_text_done(kMgText, id, "failed", error);
+        unlink((std::string(kJobs) + "/" + name).c_str());
+    };
+    if (model.empty()) {
+        std::printf("paul3d: text request but no .gguf in models/text or /data/PS5LM/models\n");
+        fail_first("missing_model");
+        return false;
+    }
+    {
+        std::lock_guard<std::mutex> lk(g_mg.mu);
+        g_mg.stage = "texto: carregando " + model.substr(model.find_last_of('/') + 1); g_mg.job_t0 = mg_now();
+    }
+    const double t0 = mg_now();
+    mg::TextEngine eng;
+    std::string err;
+    if (!eng.load(model, 8192, (int) paul3d_threads(), err)) {
+        std::printf("paul3d: text model %s: %s\n", model.c_str(), err.c_str());
+        fail_first(err);
+        return true;
+    }
+    std::printf("paul3d: text model %s loaded in %.1f s\n", model.c_str(), mg_now() - t0);
+    log_memory("text model loaded");
+    double idle0 = mg_now();
+    struct stat st;
+    while (stat(kQuit, &st) != 0) {
+        const std::string name = next_job();
+        const mg::JobKind kind = mg::kind_of(name);
+        if (kind == mg::JobKind::text) { run_text_job(eng, name); idle0 = mg_now(); continue; }
+        if (mg::text_mode_decision(kind, mg_now() - idle0) == mg::Leave::restart) break;
+        usleep(300000);
+    }
+    std::printf("paul3d: text mode ends after %.0f s idle\n", mg_now() - idle0);
+    return true;
 }
 
 // Jobs one after the other, until the quit file or until the pool is too low for another (freed memory does not
@@ -415,12 +498,17 @@ void * run(void *) {
     }
     mkdir(kJobs, 0777);
     mkdir("/data/PAUL3D/out", 0777);
+    mkdir(kMgText, 0777);
     // A job still marked running was in the title when it went away (a crash, the console): failed.
     if (DIR * d = opendir(kJobs)) {
         std::vector<std::string> left;
         while (dirent * e = readdir(d)) {
             const std::string n = e->d_name;
             if (n.size() > 8 && n.compare(n.size() - 8, 8, ".running") == 0) left.push_back(n.substr(0, n.size() - 8));
+            if (n.size() > 12 && n.compare(n.size() - 12, 12, ".textrunning") == 0) {
+                mg::write_text_done(kMgText, n.substr(0, n.size() - 12), "failed", "the title ended while answering");
+                unlink((std::string(kJobs) + "/" + n).c_str());
+            }
         }
         closedir(d);
         for (const auto & id : left) {
@@ -433,6 +521,17 @@ void * run(void *) {
         const std::string job = g_mg.viewing ? "" : next_job();
         if (job.empty()) {
             sleep(g_mg.viewing ? 1 : 2);
+            continue;
+        }
+        const mg::JobKind kind = mg::kind_of(job);
+        if (kind == mg::JobKind::text) {
+            if (!text_mode()) continue;  // no model: nothing was loaded, no need to start over
+            g_restart = stat(kQuit, &st) != 0;
+            break;
+        }
+        if (kind == mg::JobKind::download) {  // downloads come with the model catalogue (phase 1, task 7)
+            const std::string b = std::string(kJobs) + "/" + job.substr(0, job.size() - 6);
+            rename((b + ".dljob").c_str(), (b + ".dlfailed").c_str());
             continue;
         }
         const std::string path = std::string(kJobs) + "/" + job;
