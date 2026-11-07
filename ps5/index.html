@@ -64,6 +64,19 @@ main{max-width:1080px;margin:0 auto;padding:1.25rem max(1rem,env(safe-area-inset
 .large-title{font:700 2rem/1.1 var(--display);letter-spacing:-.03em;margin:.25rem 0 .9rem}
 .cap{font-size:.8125rem;font-weight:400;color:var(--label2);letter-spacing:0;margin:0 .25rem .45rem;text-transform:none}
 
+/* Models the title downloads (Modelos) */
+.mg{padding:.8rem 1rem;display:grid;gap:.45rem;position:relative}
+.mg+.mg::before{content:"";position:absolute;top:0;left:1rem;right:0;height:.5px;background:var(--sep)}
+.mg .top{display:flex;gap:.6rem;align-items:baseline;flex-wrap:wrap}.mg .top b{flex:1;min-width:10rem}
+.mg .sz{color:var(--label2);font-size:.875rem;font-variant-numeric:tabular-nums}
+.mg .st{font-size:.8125rem;font-weight:600;padding:.12rem .55rem;border-radius:99px;background:var(--fill2);color:var(--label2)}
+.mg .st.ok{color:var(--ok)}.mg .st.run{color:var(--warn)}.mg .st.bad{color:var(--bad)}
+.mg .act{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;font-size:.875rem;color:var(--label2)}
+.mg .act label{display:flex;gap:.4rem;align-items:center}.mg .act a{color:var(--tint)}
+.mg .bar{height:6px;border-radius:3px;background:var(--fill2);overflow:hidden}.mg .bar i{display:block;height:100%;width:0;background:var(--tint);transition:width .4s}
+.mg .err{font-size:.8125rem;color:var(--bad)}
+.mg [hidden]{display:none!important}
+
 /* Grouped surfaces */
 .group{background:var(--grouped);border-radius:var(--r-card);overflow:hidden}
 .group+.group,.group+.cap{margin-top:1.1rem}
@@ -339,6 +352,10 @@ a.hbtn{text-decoration:none;display:inline-block}
   <h2 class="large-title" style="margin-top:2rem">Meshes</h2>
   <div class="group"><div class="jobs" id="jobs"><div class="empty"><b>No meshes yet</b>Drop a picture to make the first one.</div></div></div>
   <p class="cap" style="margin-top:.7rem" id="pool"></p>
+
+  <h2 class="large-title" style="margin-top:2rem" id="modelos">Modelos</h2>
+  <p class="cap">O PAUL3D baixa os modelos do Hugging Face quando você pede, confere cada arquivo (sha256) e continua de onde parou se a conexão cair. <span id="mfree"></span></p>
+  <div class="group" id="mlist"><div class="empty"><b>Carregando...</b></div></div>
 </section>
 </main>
 
@@ -474,6 +491,57 @@ $('go').onclick=async()=>{
 const fmt=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function pill(cls,txt){ $('pill').className='pill '+cls; $('pilltxt').textContent=txt; }
+// ---- Modelos: GET /api/catalog and /api/downloads; a group is downloaded after its licence is ticked
+const GB=b=>(b/1e9).toLocaleString('pt-BR',{maximumFractionDigits:1})+' GB';
+const USE={'3d':'para gerar malhas 3D','text':'para a Peça por texto'};
+const mrows={};
+async function loadModels(){
+  let cat, dls;
+  try{ [cat,dls]=await Promise.all([api('/api/catalog').then(r=>r.json()),api('/api/downloads').then(r=>r.json())]); }catch(_){ return; }
+  const list=$('mlist');
+  if(list.querySelector('.empty')) list.innerHTML='';
+  $('mfree').textContent=cat.free>=0?`Livre no console: ${GB(cat.free)}.`:'';
+  for(const g of cat.groups){
+    let row=mrows[g.group];
+    if(!row){
+      row=document.createElement('div'); row.className='mg'; row.dataset.g=g.group;
+      row.innerHTML=`<div class="top"><b>${esc(g.title)}</b><span class="sz"></span><span class="st"></span></div>
+        <div class="cap" style="margin:0">${esc(USE[g.needed_for]||'')}</div>
+        <div class="bar" hidden><i></i></div>
+        <div class="act"><label><input type="checkbox" class="lic"> Li a <a target="_blank" rel="noopener" href="${esc(g.licence)}">licença</a></label>
+          <button class="btn sec sm get" type="button" disabled>Baixar</button><button class="btn sec sm stop" type="button" hidden>Cancelar</button><span class="info"></span></div>
+        <div class="err"></div>`;
+      row.querySelector('.lic').onchange=e=>{ row.querySelector('.get').disabled=!e.target.checked; };
+      row.querySelector('.get').onclick=async()=>{
+        const b=row.querySelector('.get'); b.disabled=true;
+        try{ const r=await api('/api/downloads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({group:g.group,accept_license:true})});
+          const j=await r.json(); row.querySelector('.err').textContent=r.ok?'':(j.error||'Não deu para começar.'); }
+        catch(e){ if(e.message!=='locked') row.querySelector('.err').textContent='Sem conexão com o console.'; }
+        loadModels();
+      };
+      row.querySelector('.stop').onclick=async()=>{ const id=row.dataset.dl; if(id) { try{ await api(`/api/downloads/${id}/cancel`,{method:'POST'}); }catch(_){} loadModels(); } };
+      list.appendChild(row); mrows[g.group]=row;
+    }
+    const d=dls.find(x=>x.group===g.group);
+    const active=d&&['queued','downloading','verifying'].includes(d.state);
+    row.dataset.dl=active?d.id:'';
+    row.querySelector('.sz').textContent=GB(g.size);
+    const st=row.querySelector('.st');
+    const [txt,cls]=g.installed?['Instalado','ok']:active?[{queued:'Na fila',downloading:'Baixando',verifying:'Conferindo'}[d.state],'run']
+      :g.have>0?['Pela metade','']:['Não instalado',''];
+    st.textContent=txt; st.className='st '+cls;
+    const bar=row.querySelector('.bar'); bar.hidden=!(active||(!g.installed&&g.have>0));
+    const done=active?d.done:g.have; bar.firstElementChild.style.width=Math.min(100,100*done/Math.max(1,g.size))+'%';
+    row.querySelector('.info').textContent=active&&d.state==='downloading'&&d.speed?`${GB(done)} de ${GB(g.size)} · ${(d.speed/1e6).toFixed(0)} MB/s`:'';
+    row.querySelector('.act label').hidden=g.installed||active; row.querySelector('.get').hidden=g.installed||active;
+    if(!g.installed&&!active&&g.have>0) row.querySelector('.get').textContent='Continuar';
+    if(!active) row.querySelector('.get').disabled=!row.querySelector('.lic').checked;
+    row.querySelector('.stop').hidden=!active;
+    if(d&&d.state==='failed'&&!active) row.querySelector('.err').textContent='Falhou: '+(d.error||'erro desconhecido');
+    else if(g.installed||active) row.querySelector('.err').textContent='';
+  }
+}
+
 async function poll(){
   try{
     const [st,jobs]=await Promise.all([api('/api/status').then(r=>r.json()),api('/api/jobs').then(r=>r.json())]);
@@ -769,7 +837,7 @@ $('wrecheck').onclick=()=>{ $('wrecheck').textContent='Checking...'; Promise.all
 
 function start(){
   api('/api/models').then(r=>r.json()).then(m=>{models=m;syncModels();loadWeights()}).catch(()=>{});
-  poll(); if(!timer) timer=setInterval(()=>{ if(!locked) poll(); },2500);
+  poll(); loadModels(); if(!timer) timer=setInterval(()=>{ if(!locked){ poll(); loadModels(); } },2500);
 }
 fetch('/api/auth').then(r=>r.json()).then(a=>{ if(a.required&&!a.ok) showLock(true); else start(); }).catch(()=>start());
 </script>

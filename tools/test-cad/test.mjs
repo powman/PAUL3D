@@ -3,8 +3,8 @@
 import fs from 'fs'; import assert from 'assert/strict';
 const html = fs.readFileSync(new URL('../../ps5/cad.html', import.meta.url), 'utf8');
 const code = html.slice(html.indexOf('// ---- cad logic'), html.indexOf('// ---- end cad logic'));
-const {extractCode, proseOf, scadProblems, messagesFor, sseDeltas, slug} =
-  new Function(code + ';return {extractCode, proseOf, scadProblems, messagesFor, sseDeltas, slug};')();
+const {extractCode, proseOf, scadProblems, messagesFor, sseDeltas, slug, paul3dAsk} =
+  new Function(code + ';return {extractCode, proseOf, scadProblems, messagesFor, sseDeltas, slug, paul3dAsk};')();
 const t = (name, f) => { f(); console.log('ok  ', name); };
 
 t('code block tagged openscad', () => assert.equal(extractCode('Aqui:\n```openscad\ncube(10);\n```\nPronto.'), 'cube(10);'));
@@ -29,3 +29,52 @@ t('stream deltas, split line kept', () => {
   assert.equal(b.reasoning, 'hm'); assert.equal(b.done, true);
 });
 t('file name from prompt', () => assert.equal(slug('Caixa 60 × 40 com Tampa!'), 'caixa-60-40-com-tampa'));
+
+// ---- paul3dAsk: the console's own text engine (POST /api/text, then GET /api/text/<id>)
+const json = (status, body) => ({ok: status < 400, status, json: async () => body});
+function fakeServer(steps) {  // steps: what GET answers, one per call; POST answers {id:'t1'} unless steps.post is set
+  const calls = [];
+  const fetchFn = async (url, opts = {}) => {
+    calls.push((opts.method || 'GET') + ' ' + url);
+    if (opts.method === 'POST') return typeof steps.post === 'function' ? steps.post() : (steps.post || json(202, {id: 't1'}));
+    const s = steps.get.shift();
+    if (s instanceof Error) throw s;
+    return s;
+  };
+  return {fetchFn, calls};
+}
+const noSleep = async () => {};
+const ta = async (name, f) => { try { await f(); console.log('ok  ', name); } catch (e) { console.log('FAIL', name, e.message); process.exitCode = 1; } };
+await ta('paul3dAsk: partial text, then the answer', async () => {
+  const srv = fakeServer({get: [json(200, {status: 'loading', text: ''}), json(200, {status: 'generating', text: 'cube('}),
+    json(200, {status: 'done', text: 'cube(1);'})]});
+  const parts = [];
+  const out = await paul3dAsk([{role: 'user', content: 'x'}], {fetchFn: srv.fetchFn, sleep: noSleep, onPartial: p => parts.push(p)});
+  assert.equal(out, 'cube(1);'); assert.deepEqual(parts, ['cube(', 'cube(1);']);
+  assert.equal(srv.calls[0], 'POST /api/text'); assert.equal(srv.calls[1], 'GET /api/text/t1');
+});
+await ta('paul3dAsk: the title restarting (network errors) is waited out', async () => {
+  const srv = fakeServer({get: [new TypeError('Failed to fetch'), new TypeError('Failed to fetch'), new TypeError('Failed to fetch'),
+    json(200, {status: 'done', text: 'ok'})]});
+  assert.equal(await paul3dAsk([], {fetchFn: srv.fetchFn, sleep: noSleep}), 'ok');
+});
+await ta('paul3dAsk: a POST lost while restarting is sent again', async () => {
+  let n = 0;
+  const srv = fakeServer({post: () => { if (n++ < 2) throw new TypeError('Failed to fetch'); return json(202, {id: 't9'}); },
+    get: [json(200, {status: 'done', text: 'yes'})]});
+  assert.equal(await paul3dAsk([], {fetchFn: srv.fetchFn, sleep: noSleep}), 'yes');
+});
+await ta('paul3dAsk: no model is MISSING_MODEL', async () => {
+  const srv = fakeServer({post: json(409, {error: 'missing_model'}), get: []});
+  await assert.rejects(paul3dAsk([], {fetchFn: srv.fetchFn, sleep: noSleep}), /MISSING_MODEL/);
+});
+await ta('paul3dAsk: a failed answer carries its error', async () => {
+  const srv = fakeServer({get: [json(200, {status: 'failed', text: '', error: 'the prompt is longer than the context'})]});
+  await assert.rejects(paul3dAsk([], {fetchFn: srv.fetchFn, sleep: noSleep}), /longer than the context/);
+});
+await ta('paul3dAsk: gives up after 60 s without the console', async () => {
+  let clock = 0;
+  const errs = Array.from({length: 200}, () => new TypeError('Failed to fetch'));
+  const srv = fakeServer({get: errs});
+  await assert.rejects(paul3dAsk([], {fetchFn: srv.fetchFn, sleep: async ms => { clock += ms; }, now: () => clock}), /console/);
+});

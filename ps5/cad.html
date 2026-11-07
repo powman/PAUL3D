@@ -58,6 +58,9 @@ details.cfg summary{cursor:pointer;color:var(--label2);font-size:.875rem}
 details.cfg[open] summary{margin-bottom:.6rem}
 .cfg label{display:grid;gap:.25rem;font-size:.8125rem;color:var(--label2);margin-bottom:.5rem}
 .hint{font-size:.8125rem;color:var(--label2)}
+.srv{display:grid;gap:.35rem;margin-bottom:.6rem;font-size:.875rem}.srv label{display:flex;gap:.5rem;align-items:center;color:var(--label);margin:0}
+.srv input{width:auto}
+#log a{color:var(--tint)}
 .help{display:grid;gap:.6rem;margin-top:.75rem;padding:.75rem;border-radius:var(--r-ctl);background:var(--fill2);font-size:.8125rem;color:var(--label2)}
 .help b{color:var(--label)}.help ol{margin:.3rem 0 0;padding-left:1.2rem;display:grid;gap:.3rem}
 .help a{color:var(--tint)}.help code{font-family:var(--mono);font-size:.75rem;overflow-wrap:anywhere}
@@ -102,9 +105,16 @@ details.cfg[open] summary{margin-bottom:.6rem}
     <ol id="log" aria-live="polite"></ol>
     <details class="cfg" id="cfg">
       <summary>Servidor da IA</summary>
+      <div class="srv" role="radiogroup" aria-label="Servidor da IA">
+        <label><input type="radio" name="srv" value="paul3d"> PAUL3D (este console)</label>
+        <label><input type="radio" name="srv" value="openai"> Outro servidor (API da OpenAI)</label>
+      </div>
+      <p class="hint" id="p3hint">A IA de texto do próprio console: o modelo fica no PAUL3D (baixe em <a href="/#modelos">Modelos</a>, na página inicial).</p>
+      <div id="oaifields">
       <label>Endereço (API da OpenAI)<input id="url" type="url" spellcheck="false" placeholder="http://192.168.1.50:8081/v1"></label>
       <label>Modelo<input id="model" list="models" spellcheck="false" placeholder="o que estiver carregado"><datalist id="models"></datalist></label>
       <label>Chave (opcional)<input id="key" type="password" autocomplete="off"></label>
+      </div>
       <div class="row"><button class="btn sec sm" id="test" type="button">Testar</button><span class="hint" id="testmsg"></span></div>
       <p class="hint">PS5LM no console: <code>http://&lt;ip do PS5&gt;:8081/v1</code>. llama.cpp no PC: <code>http://localhost:8080/v1</code>.</p>
       <div class="help" id="help">
@@ -193,6 +203,38 @@ function sseDeltas(buf){
   }
   return out;
 }
+// The console's own text engine (PAUL3D): POST /api/text, then GET /api/text/<id> until it is done. The title starts over
+// when it leaves its text mode, so its server can be gone for a few seconds: requests are tried again for up to 60 s
+// after the last answer. No model: Error('MISSING_MODEL').
+async function paul3dAsk(messages, {fetchFn = (...a) => fetch(...a), sleep = ms => new Promise(r => setTimeout(r, ms)),
+    now = () => Date.now(), onPartial = () => {}, base = '', signal} = {}) {
+  let lastOk = now();
+  const tryHard = async f => {
+    for (;;) {
+      try { const r = await f(); lastOk = now(); return r; }
+      catch (e) {
+        if (e && e.name === 'AbortError') throw e;
+        if (now() - lastOk > 60000) throw new Error('sem resposta do console há 60 s');
+        await sleep(1500);
+      }
+    }
+  };
+  const post = await tryHard(() => fetchFn(base + '/api/text', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({messages, max_tokens: 4096, temperature: 0.2}), signal}));
+  const pj = await post.json().catch(() => ({}));
+  if (post.status === 409 && pj.error === 'missing_model') throw new Error('MISSING_MODEL');
+  if (!post.ok) throw new Error(pj.error || 'HTTP ' + post.status);
+  let shown = '';
+  for (;;) {
+    await sleep(700);
+    const r = await tryHard(() => fetchFn(base + '/api/text/' + pj.id, {signal}));
+    if (r.status === 404) throw new Error('o pedido sumiu do console');
+    const j = await r.json();
+    if (j.text && j.text !== shown) { shown = j.text; onPartial(shown); }
+    if (j.status === 'done') return j.text || '';
+    if (j.status === 'failed') throw new Error(j.error || 'a IA do console falhou');
+  }
+}
 function slug(s){ return (String(s||'peca').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40))||'peca'; }
 // ---- end cad logic
 
@@ -200,19 +242,37 @@ function slug(s){ return (String(s||'peca').normalize('NFD').replace(/[̀-ͯ]/g,
 const store={get:k=>{try{return localStorage.getItem('paul3d.cad.'+k)||''}catch(_){return ''}},set:(k,v)=>{try{localStorage.setItem('paul3d.cad.'+k,v)}catch(_){}}};
 const guessUrl=()=>location.protocol.startsWith('http')&&location.hostname?`http://${location.hostname}:8081/v1`:'';
 $('url').value=store.get('url')||guessUrl(); $('model').value=store.get('model'); $('key').value=store.get('key');
+// Served by PAUL3D (port 7870): its own text engine by default; opened from a file or elsewhere: another server.
+const onPaul3d=location.protocol.startsWith('http')&&location.port==='7870';
+let srvMode=store.get('srv')||(onPaul3d?'paul3d':'openai');
+if(!onPaul3d&&srvMode==='paul3d') srvMode='openai';
+function syncSrv(){
+  for(const r of document.querySelectorAll('input[name=srv]')){ r.checked=r.value===srvMode; if(r.value==='paul3d') r.disabled=!onPaul3d; }
+  $('oaifields').hidden=srvMode!=='openai'; $('p3hint').hidden=srvMode!=='paul3d'; $('help').hidden=srvMode!=='openai';
+}
+for(const r of document.querySelectorAll('input[name=srv]')) r.addEventListener('change',()=>{ srvMode=r.value; store.set('srv',srvMode); syncSrv(); $('testmsg').textContent=''; });
+syncSrv();
 for(const k of ['url','model','key']) $(k).addEventListener('change',()=>store.set(k,$(k).value.trim()));
 function showHelp(){ $('cfg').open=true; $('help').scrollIntoView({block:'nearest',behavior:'smooth'}); }
 $('copycmd').onclick=async()=>{ try{ await navigator.clipboard.writeText($('pccmd').textContent); $('copycmd').textContent='Copiado'; setTimeout(()=>$('copycmd').textContent='Copiar',1500); }catch(_){ getSelection().selectAllChildren($('pccmd')); } };
-if(!$('url').value) $('cfg').open=true;
+if(srvMode==='openai'&&!$('url').value) $('cfg').open=true;
 if(location.port==='7870') $('back').hidden=false;
 const base=()=>$('url').value.trim().replace(/\/+$/,'').replace(/\/chat\/completions$/,'');
 const headers=()=>{ const h={'Content-Type':'application/json'}; const k=$('key').value.trim(); if(k) h.Authorization='Bearer '+k; return h; };
 
 function pill(state,text){ $('pill').className='pill '+state; $('pilltxt').textContent=text; }
-function log(text,cls){ const li=document.createElement('li'); li.textContent=text; if(cls) li.className=cls; $('log').appendChild(li); li.scrollIntoView({block:'nearest'}); }
+function log(text,cls,link){ const li=document.createElement('li'); li.textContent=text; if(cls) li.className=cls;
+  if(link){ const a=document.createElement('a'); a.href=link.href; a.textContent=link.text; li.append(' ',a); }
+  $('log').appendChild(li); li.scrollIntoView({block:'nearest'}); }
 
 $('test').onclick=async()=>{
   $('testmsg').textContent='Testando...';
+  if(srvMode==='paul3d'){
+    try{ const j=await (await fetch('/v1/models')).json(); const m=(j.data||[])[0];
+      $('testmsg').textContent=m?`Pronto: ${m.id}`:'Falta o modelo de texto: baixe em Modelos, na página inicial.'; }
+    catch(e){ $('testmsg').textContent='O console não respondeu ('+e.message+').'; }
+    return;
+  }
   try{
     const r=await fetch(base()+'/models',{headers:headers()}); if(!r.ok) throw new Error('HTTP '+r.status);
     const j=await r.json(); const ids=(j.data||[]).map(m=>m.id);
@@ -226,6 +286,10 @@ $('test').onclick=async()=>{
 let abort=null;
 async function ask(messages){
   abort=new AbortController();
+  if(srvMode==='paul3d'){
+    pill('run','Na fila do console');
+    return paul3dAsk(messages,{signal:abort.signal,onPartial:text=>{ const c=extractCode(text); if(c) $('code').value=c; pill('run','Escrevendo'); }});
+  }
   const body={model:$('model').value.trim()||'default',messages,stream:true,temperature:0.2,max_tokens:4096,
     chat_template_kwargs:{enable_thinking:false}};
   const r=await fetch(base()+'/chat/completions',{method:'POST',headers:headers(),body:JSON.stringify(body),signal:abort.signal});
@@ -309,7 +373,7 @@ async function compileShown(){
 }
 async function run(kind){
   const prompt=$('prompt').value.trim();
-  if(!base()){ $('cfg').open=true; $('url').focus(); log('Coloque o endereço do servidor da IA.','bad'); return; }
+  if(srvMode==='openai'&&!base()){ $('cfg').open=true; $('url').focus(); log('Coloque o endereço do servidor da IA.','bad'); return; }
   if(!prompt){ $('prompt').focus(); return; }
   setBusy(true);
   try{
@@ -329,6 +393,7 @@ async function run(kind){
     }
   }catch(e){
     if(e.name==='AbortError'){ log('Parado.'); pill('','Pronto'); }
+    else if(e.message==='MISSING_MODEL'){ log('Falta o modelo de texto no console.','bad',{href:'/#modelos',text:'Baixar em Modelos'}); pill('bad','Sem modelo'); }
     else{ log('Falha ao falar com a IA: '+e.message+'. Confira o endereço em Servidor da IA, ou veja lá como instalar.','bad'); pill('bad','Sem conexão'); showHelp(); }
   }finally{ setBusy(false); syncMode(); }
 }
