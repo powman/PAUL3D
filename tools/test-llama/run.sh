@@ -24,5 +24,6 @@ out=$("$w/build/hello" "$model" "Reply with exactly the word OK." 2> "$w/hello.e
 t "hello runs" 0 "$?"
 t "architecture qwen35" 1 "$(grep -c '^arch=qwen35$' <<<"$out")"
 t "answer contains OK" 1 "$(grep -c '^answer=.*OK' <<<"$out")"
-if [ -x "$w/build/test_text" ]; then "$w/build/test_text" "$model"; t "test_text" 0 "$?"; fi
+t "test_text built" 1 "$([ -x "$w/build/test_text" ] && echo 1 || echo 0)"
+if [ -x "$w/build/test_text" ]; then "$w/build/test_text" "$model" 2> "$w/test_text.err"; t "test_text" 0 "$?"; fi
 exit $fail
