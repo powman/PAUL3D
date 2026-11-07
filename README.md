@@ -17,9 +17,10 @@
   <a href="https://github.com/powman/PAUL3D/issues">Issues</a>
 </p>
 
-> **Legal notice, short.** PAUL3D contains no model weights and downloads nothing: the title has no network client, only a web
-> server for your own network. You fetch the weights yourself from their authors, after accepting their licences
-> (`tools/get-weights.sh` asks first). PAUL3D is not affiliated with Sony, Microsoft or Meta, ships no exploit and asks for none.
+> **Legal notice, short.** PAUL3D contains no model weights. It goes on the internet only when you ask it to download a model
+> (the **Modelos** panel of the page): only to huggingface.co, only the pinned files of `ps5/models.txt`, each checked by sha256,
+> and only after you tick that you read that model's licence. Its web server is for your own network. You can also fetch the
+> weights yourself with `tools/get-weights.sh`, which asks first. PAUL3D is not affiliated with Sony, Microsoft or Meta, ships no exploit and asks for none.
 > Details: [Licences, plainly](#licences-plainly) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 <p align="center">
@@ -164,17 +165,26 @@ The page has three presets. This is one picture (the gargoyle) made with each, s
 In the close-up, Fast shows blocky patches in the texture around the nose and mouth; Detailed has a crisper texture and cleaner
 edges. More steps change the shape a little as well, they do not only sharpen it. A Detailed GLB is bigger (18 MB here, 7 MB for the others).
 
+## Modelos: downloads on the console
+
+The page's **Modelos** panel lists what PAUL3D can download itself (`ps5/models.txt`): the 3D set (TRELLIS.2 q4, 6.1 GB) and the
+text engine for "Peça por texto" (Qwen3.5 9B Q4_K_M, 5.7 GB, Apache-2.0). Tick that you read the licence, press Baixar; the bar
+shows the speed. A download that stops (Wi-Fi, the title closed, Cancelar) goes on from where it was with Continuar, and every file
+is checked by sha256 before it is used. A download does not run at the same time as a mesh or a text request.
+
 ## A part from a sentence (OpenSCAD)
 
 For functional parts (boxes, brackets, hooks, key rings, spare parts) a 3D mesh from a picture is the wrong tool: you want exact
 measurements. **Peça por texto** (`http://<console>:7870/cad`, or open `ps5/cad.html` from a PC) asks a language model for an
 [OpenSCAD](https://openscad.org) program, compiles it in the browser (OpenSCAD as WebAssembly) and shows the part, ready as STL.
 
-- The model: any server with the OpenAI API. [PS5LM](https://github.com/cobanov/PS5LM) on the console (`http://<console>:8081/v1`,
-  Qwen 3.5 9B or larger) or llama.cpp's `llama-server` on a PC (`http://localhost:8080/v1`). Set it under **Servidor da IA**.
+- The model: **PAUL3D itself** (the default when the page comes from the console): its text mode loads the GGUF from
+  `/data/PAUL3D/models/text` (or PS5LM's `/data/PS5LM/models`) once and keeps it while you ask; the title starts over when you
+  make a mesh or after 5 minutes without a request. Or any server with the OpenAI API, under **Servidor da IA**: PS5LM
+  (`http://<console>:8081/v1`) or llama.cpp's `llama-server` on a PC (`http://localhost:8080/v1`).
 - When OpenSCAD reports an error, the page sends it back to the model, up to three times. The code stays editable.
 - Then write what to change ("furos 1 mm maiores"): the model gets the current code and the change.
-- PS5LM and PAUL3D run one at a time on the console, so with PS5LM open use `ps5/cad.html` from the PC.
+- Other programs can use the same text engine through `/v1/chat/completions` (docs/API.md).
 - The browser needs internet once for three.js, OpenSCAD (11 MB) and a font, from jsDelivr.
 
 ## Use it from a script
@@ -229,7 +239,8 @@ More numbers and the variant study (steps, q8, atlas size, face budget, seeds, P
 
 ## Where the weights come from
 
-PAUL3D has no model weights of its own and never downloads any: the command above (or you, by hand) gets them from their authors, once.
+PAUL3D has no model weights of its own. The **Modelos** panel of the page downloads them on the console (from their authors on
+Hugging Face, after you tick their licence), or the command above (or you, by hand) gets them on a PC and copies them over.
 This is what it fetches, from [ilintar/trellis2-gguf](https://huggingface.co/ilintar/trellis2-gguf) (TRELLIS.2 as GGUF, folder `q4`, a fixed
 revision). **Each name is a direct download link** if you prefer your browser:
 

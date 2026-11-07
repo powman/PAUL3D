@@ -1,3 +1,23 @@
+## PAUL3D 0.6.0
+
+### Novo
+- **Modelos, baixados pelo próprio console.** Na página inicial, a seção Modelos mostra o que está instalado e baixa o que falta,
+  direto do Hugging Face: marque "Li a licença", clique em Baixar e acompanhe a barra. Se a conexão cair ou você cancelar,
+  "Continuar" segue de onde parou. Cada arquivo é conferido (sha256) antes de ser usado.
+- **A IA de texto dentro do PAUL3D.** A "Peça por texto" usa o próprio console: baixe a "IA de texto (Qwen3.5 9B)" em Modelos e
+  pronto, sem PS5LM e sem PC. O modelo fica carregado enquanto você faz pedidos; o app reinicia sozinho quando você gera uma malha
+  ou depois de 5 minutos parado.
+- Outros programas podem usar a mesma IA pela API da OpenAI (`/v1/chat/completions`).
+
+### Rede
+- O PAUL3D agora acessa a internet, mas só quando você pede um download em Modelos, só no huggingface.co e só os arquivos fixos
+  do catálogo.
+
+### Teste pedido
+1. Em Modelos, baixe a "IA de texto (Qwen3.5 9B)" (5,7 GB) e anote a velocidade.
+2. Em "Peça por texto", gere o chaveiro de exemplo só com o PAUL3D aberto.
+3. Depois gere uma malha 3D, para conferir que o 3D continua igual.
+
 ## PAUL3D 0.5.0
 
 Só uma troca por dentro, preparando o PAUL3D para ter texto e imagem no mesmo app: o motor 3D agora usa a mesma versão da
