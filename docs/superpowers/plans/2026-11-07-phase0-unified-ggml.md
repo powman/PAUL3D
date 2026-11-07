@@ -105,4 +105,10 @@
 
 ## Resultado
 
-(preenchido durante a execução)
+**Task 2 (2026-11-07):** ggml único = leejet `dc998771` + 2 patches do PS5SD. Os 10 commits do pwilkin ficam de fora: 9 só
+mexem em `src/ggml-cuda/` (um deles, `0c672e3`, conflita com a 0.27) e `9dc0e51` corrige só Windows em ARM64 (conflita com o
+backend Vulkan da 0.27). Nenhum entra no build do PS5 nem no teste em CPU.
+
+**Task 3 (2026-11-07):** trellis.cpp `8e4ce11` **compila** contra o ggml único no PC (Linux, CPU), assim como contra o atual.
+A geração em CPU foi interrompida: um passo da primeira etapa levou 469 s com 7 GB de RAM ocupados por outros programas, o que
+dá várias horas por geração, vezes duas. A comparação de malha passa para o console (Task 5), que já estava no plano.

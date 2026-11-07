@@ -10,6 +10,7 @@ fail=0
 t() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1: expected [$2], got [$3]"; fail=1; fi; }
 
 bash "$script" "$d/g" "$patches" > "$d/log1" 2>&1; t "first run succeeds" 0 "$?"
+t "summary counts what was left out" 1 "$(grep -c '0 pwilkin applied, 10 left out (9 cuda-only, 1 windows-arm64)' "$d/log1")"
 t "10 pwilkin commits accounted for" 10 "$(grep -Ec '^pwilkin(-skipped)? ' "$d/g/.paul3d-ggml" 2>/dev/null)"
 t "only CUDA-only commits skipped" 0 "$(sed -n 's/^pwilkin-skipped \([0-9a-f]*\) cuda-only$/\1/p' "$d/g/.paul3d-ggml" | while read c; do git -C "$d/g" show --name-only --format= "$c" | grep -vc '^src/ggml-cuda/'; done | awk '{s+=$1} END {print s+0}')"
 t "the Windows-ARM64 commit is skipped with its reason" 1 "$(grep -c '^pwilkin-skipped 9dc0e51f8ee30c7295d2d9b59e788024db983bd9 windows-arm64$' "$d/g/.paul3d-ggml" 2>/dev/null)"

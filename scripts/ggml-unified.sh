@@ -62,4 +62,5 @@ for name in $(patch_names); do
     echo "ps5sd $name" >> "$dest/.paul3d-ggml.part"
 done
 mv "$dest/.paul3d-ggml.part" "$marker"
-echo "ggml-unified: $dest = leejet ${LEEJET:0:8} + $(grep -c '^pwilkin ' "$marker") pwilkin ($(grep -c '^pwilkin-skipped ' "$marker") CUDA-only left out) + $(patch_names | wc -l) PS5SD patch(es)"
+why=$(sed -n 's/^pwilkin-skipped [0-9a-f]* //p' "$marker" | sort | uniq -c | awk '{printf "%s%d %s", (NR > 1 ? ", " : ""), $1, $2}')
+echo "ggml-unified: $dest = leejet ${LEEJET:0:8}, $(grep -c '^pwilkin ' "$marker") pwilkin applied, $(grep -c '^pwilkin-skipped ' "$marker") left out ($why), $(patch_names | wc -l) PS5SD patch(es)"
