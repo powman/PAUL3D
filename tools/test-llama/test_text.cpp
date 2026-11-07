@@ -1,5 +1,6 @@
 // Tests of ps5/mg_text (the console's text engine) on the PC, with a small Qwen3.5.   usage: test_text <model.gguf>
 #include "mg_text.hpp"
+#include "mg_textjob.hpp"
 #include <cstdio>
 #include <filesystem>
 #include <fstream>

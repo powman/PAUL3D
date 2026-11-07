@@ -94,17 +94,4 @@ bool TextEngine::chat(const std::vector<ChatMsg> & msgs, int max_tokens, float t
     return ok;
 }
 
-std::string find_text_model(const std::vector<std::string> & dirs) {
-    namespace fs = std::filesystem;
-    for (const auto & d : dirs) {
-        std::error_code ec;
-        std::vector<std::string> names;
-        for (const auto & e : fs::directory_iterator(d, ec)) {
-            if (e.is_regular_file(ec) && e.path().extension() == ".gguf") names.push_back(e.path().string());
-        }
-        if (!names.empty()) { std::sort(names.begin(), names.end()); return names.front(); }
-    }
-    return "";
-}
-
 }  // namespace mg

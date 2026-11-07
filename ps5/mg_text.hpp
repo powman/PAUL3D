@@ -40,7 +40,4 @@ class TextEngine {
     int             n_ctx_ = 0;
 };
 
-// The first .gguf (by name) of the first folder that has one; "" when none.
-std::string find_text_model(const std::vector<std::string> & dirs);
-
 }  // namespace mg

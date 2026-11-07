@@ -26,6 +26,10 @@ bool parse_text_job(const std::string & json, TextJob & out, std::string & err);
 void write_text_partial(const std::string & text_dir, const std::string & id, const std::string & text);  // atomic
 void write_text_done(const std::string & text_dir, const std::string & id, const std::string & status, const std::string & error);
 
+// The first .gguf (by name) of the first folder that has one; "" when none. The worker loads it; the web server
+// answers missing_model without it. Folders: models/text of PAUL3D, then PS5LM's models.
+std::string find_text_model(const std::vector<std::string> & dirs);
+
 // {"id","status":"queued"|"loading"|"generating"|"done"|"failed","text","error"?}; "" when the id is unknown.
 std::string text_status(const std::string & jobs_dir, const std::string & text_dir, const std::string & id);
 

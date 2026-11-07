@@ -6,7 +6,11 @@ set -u
 mkdir -p /tmp/g /data/PAUL3D/{jobs,in,out,logs}
 printf 'static const unsigned char mg_index_html[]={0}; static const unsigned long mg_index_html_len=1;\n' > /tmp/g/mg_index_html.h
 printf 'static const unsigned char mg_cad_html[]={0}; static const unsigned long mg_cad_html_len=1;\n' > /tmp/g/mg_cad_html.h
-clang++ -std=c++17 -O1 -I /src/ps5 -I /tmp/g -I /src/src/trellis.cpp/thirdparty/cpp-httplib /src/tools/test-web/main.cpp /src/ps5/mg_web.cpp -o /tmp/web -lpthread || exit 1
+# The compiler and the header folders can be set: CXX, HTTPLIB_DIR (trellis.cpp's thirdparty/cpp-httplib) and JSON_DIR
+# (llama.cpp's vendor/, for nlohmann/json), e.g. in an alpine container: apk add g++ curl bash; CXX=g++ ...
+${CXX:-clang++} -std=c++17 -O1 -I /src/ps5 -I /tmp/g -I "${HTTPLIB_DIR:-/src/src/trellis.cpp/thirdparty/cpp-httplib}" \
+  -I "${JSON_DIR:-/src/.deps/llama.cpp/vendor}" /src/tools/test-web/main.cpp /src/ps5/mg_web.cpp /src/ps5/mg_textjob.cpp \
+  -o /tmp/web -lpthread || exit 1
 /tmp/web > /tmp/web.log 2>&1 &
 sleep 1
 U=http://127.0.0.1:7870; fail=0
@@ -99,6 +103,51 @@ t "weights: a partial file means not complete" false "$(curl -s $U/api/weights |
 printf 'secret123\n' > /data/PAUL3D/api-key.txt
 t "weights: needs the key when one is set"   401 "$(code $U/api/weights)"
 rm -f /data/PAUL3D/api-key.txt
+# ---- text: POST /api/text, GET /api/text/<id>, /v1/models, /v1/chat/completions (the worker is played by the test)
+J='Content-Type: application/json'
+rm -rf /data/PAUL3D/models/text /data/PAUL3D/text /data/PS5LM; mkdir -p /data/PAUL3D/text; rm -f /data/PAUL3D/jobs/*
+ASK='{"messages":[{"role":"user","content":"hi"}]}'
+t "text: no model is 409"                    409 "$(code -H "$J" -d "$ASK" $U/api/text)"
+t "text: the error says missing_model"       1   "$(curl -s -H "$J" -d "$ASK" $U/api/text | grep -c '"missing_model"')"
+t "text: no model, /v1/models is empty"      '{"data":[],"object":"list"}' "$(curl -s $U/v1/models)"
+mkdir -p /data/PS5LM/models; : > /data/PS5LM/models/z.gguf
+t "text: PS5LM's model counts"               202 "$(code -H "$J" -d "$ASK" $U/api/text)"
+rm -f /data/PAUL3D/jobs/*; mkdir -p /data/PAUL3D/models/text; : > /data/PAUL3D/models/text/q.gguf
+t "text: PAUL3D's own model first"           '{"data":[{"id":"q.gguf","object":"model"}],"object":"list"}' "$(curl -s $U/v1/models)"
+TID=$(curl -s -H "$J" -d "$ASK" $U/api/text | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+t "text: accepted with an id"                1   "$([ -n "$TID" ] && echo 1 || echo 0)"
+t "text: the job file holds the messages"    1   "$(grep -c '"content":"hi"' /data/PAUL3D/jobs/$TID.textjob 2>/dev/null)"
+t "text: not JSON is 400"                    400 "$(code -H "$J" -d '{nope' $U/api/text)"
+t "text: no messages is 400"                 400 "$(code -H "$J" -d '{"messages":[]}' $U/api/text)"
+t "text: queued"                             1   "$(curl -s $U/api/text/$TID | grep -c '"status":"queued"')"
+mv /data/PAUL3D/jobs/$TID.textjob /data/PAUL3D/jobs/$TID.textrunning
+t "text: loading"                            1   "$(curl -s $U/api/text/$TID | grep -c '"status":"loading"')"
+printf 'cube(1' > /data/PAUL3D/text/$TID.txt
+t "text: generating, with the text so far"   1   "$(curl -s $U/api/text/$TID | grep -c '"status":"generating".*"text":"cube(1"')"
+printf 'cube(1);' > /data/PAUL3D/text/$TID.txt; printf '{"status":"done"}' > /data/PAUL3D/text/$TID.textdone; rm -f /data/PAUL3D/jobs/$TID.textrunning
+t "text: done"                               1   "$(curl -s $U/api/text/$TID | grep -c '"status":"done".*"text":"cube(1);"')"
+t "text: unknown id is 404"                  404 "$(code $U/api/text/t19990101-000000-0)"
+fake_worker() {  # answers the next .textjob after a second, as the title's worker would
+  sleep 1; f=$(ls /data/PAUL3D/jobs/*.textjob | head -1); id=$(basename "$f" .textjob)
+  printf '%s' "$1" > /data/PAUL3D/text/$id.txt; printf '{"status":"done"}' > /data/PAUL3D/text/$id.textdone; rm -f "$f"; }
+rm -f /data/PAUL3D/jobs/*
+fake_worker 'sphere(5);' & fw=$!
+R=$(curl -s -m 20 -H "$J" -d '{"model":"x","messages":[{"role":"user","content":"a ball"}]}' $U/v1/chat/completions)
+t "chat completions: the answer"             1   "$(grep -c '"content":"sphere(5);"' <<<"$R")"
+t "chat completions: OpenAI's shape"         1   "$(grep -c '"finish_reason":"stop"' <<<"$R")"
+wait $fw
+fake_worker 'cube(2);' & fw=$!
+R=$(curl -s -m 20 -H "$J" -d '{"stream":true,"messages":[{"role":"user","content":"a box"}]}' $U/v1/chat/completions)
+t "chat completions, stream: the text"       1   "$(grep -c '^data: .*cube(2);' <<<"$R")"
+t "chat completions, stream: [DONE]"         1   "$(grep -c '^data: \[DONE\]' <<<"$R")"
+wait $fw
+printf 'secret123\n' > /data/PAUL3D/api-key.txt
+t "text: needs the key"                      401 "$(code -H "$J" -d "$ASK" $U/api/text)"
+t "chat completions: needs the key"          401 "$(code -H "$J" -d "$ASK" $U/v1/chat/completions)"
+t "v1/models: needs the key"                 401 "$(code $U/v1/models)"
+t "chat completions: Bearer key works"       1   "$(curl -s -H 'Authorization: Bearer secret123' $U/v1/models | grep -c q.gguf)"
+rm -f /data/PAUL3D/api-key.txt /data/PAUL3D/jobs/*
+
 kill %1 2>/dev/null
 [ $fail = 0 ] && echo "ALL PASSED" || echo "SOME FAILED"
 exit $fail

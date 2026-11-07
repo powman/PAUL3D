@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <fstream>
 #include <sstream>
+#include <dirent.h>
 #include <sys/stat.h>
 
 #include "nlohmann/json.hpp"
@@ -48,6 +49,24 @@ void write_text_done(const std::string & dir, const std::string & id, const std:
     const std::string p = dir + "/" + id + ".textdone";
     { std::ofstream f(p + ".tmp"); f << j.dump(); }
     std::rename((p + ".tmp").c_str(), p.c_str());
+}
+
+std::string find_text_model(const std::vector<std::string> & dirs) {
+    std::vector<std::string> names;
+    for (const auto & d : dirs) {
+        names.clear();
+        if (DIR * h = opendir(d.c_str())) {
+            while (dirent * e = readdir(h)) {
+                const std::string n = e->d_name;
+                struct stat st;
+                if (n.size() > 5 && n.compare(n.size() - 5, 5, ".gguf") == 0 && stat((d + "/" + n).c_str(), &st) == 0 && S_ISREG(st.st_mode))
+                    names.push_back(d + "/" + n);
+            }
+            closedir(h);
+        }
+        if (!names.empty()) { std::sort(names.begin(), names.end()); return names.front(); }
+    }
+    return "";
 }
 
 std::string text_status(const std::string & jobs, const std::string & dir, const std::string & id) {

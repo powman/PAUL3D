@@ -12,6 +12,9 @@
 | `GET /api/jobs/<id>/image` | the input picture |
 | `POST /api/jobs/<id>/cancel` | cancel a queued job |
 | `GET /api/jobs/<id>/log` | the last lines of the job's log: `{"lines":[...]}` |
+| `POST /api/text` | JSON `{"messages":[{"role","content"}...],"max_tokens"?,"temperature"?}` → `202 {"id"}`. The worker's text mode answers it with the console's language model (`/data/PAUL3D/models/text/*.gguf`, else PS5LM's `/data/PS5LM/models`). `409 {"error":"missing_model"}` without one, `400` for a bad request |
+| `GET /api/text/<id>` | `{"id","status":"queued"\|"loading"\|"generating"\|"done"\|"failed","text","error"?}`; `text` grows while it is made |
+| `GET /v1/models`, `POST /v1/chat/completions` | OpenAI's API on top of the same queue, for other programs; the answer comes when it is done (with `"stream":true` as one event) |
 | `GET /cad` | the page that makes a part from a sentence (LLM writes OpenSCAD, the browser compiles it; README) |
 | `GET /api/ps5sd/pictures` | the pictures in PS5SD's `/data/PS5SD/outputs` (png and jpg, newest first, at most 60): `[{"name","bytes"}]` |
 | `GET /api/ps5sd/picture/<name>` | one of those pictures |
