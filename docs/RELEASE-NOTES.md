@@ -1,3 +1,13 @@
+## PAUL3D 0.5.0
+
+Só uma troca por dentro, preparando o PAUL3D para ter texto e imagem no mesmo app: o motor 3D agora usa a mesma versão da
+biblioteca ggml que o gerador de imagens (0.27). **Nada muda na tela.** A malha deve sair igual à da 0.4.0.
+
+### Teste pedido
+Com a mesma foto, seed 42, Balanced e textura desligada, gere uma malha na 0.4.0 e outra na 0.5.0, e compare:
+`python3 tools/compare-glb.py v040.glb v050.glb` (deve dizer PASS) e os tempos de `tools/mg.sh log`.
+Se algo piorar, volte para a 0.4.0 (o zip continua na página de versões).
+
 ## PAUL3D 0.4.0
 
 ### Novo

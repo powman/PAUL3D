@@ -2,7 +2,7 @@
 # Builds PAUL3D (trellis.cpp as a PS5 title) in the ps5sd-build container (docker/ of the PS5SD submodule),
 # with the repository mounted at /work, after scripts/setup-deps.sh (see docs/BUILDING.md). Recipe: PS5SD's
 # scripts/build-app.sh (adapted from PS5LM, GPL-3.0).
-#   .deps/trellis.cpp       trellis.cpp @ 8e4ce11 + pwilkin/ggml @ f8697b3 + PS5SD's patches/ggml (cloned here)
+#   .deps/trellis.cpp       trellis.cpp @ 8e4ce11 + the unified ggml (scripts/ggml-unified.sh: leejet 0.27 + PS5SD's patches/ggml)
 #   ps5/                    this repository's title (CMakeLists.txt, mg_main.cpp, mg_web.cpp, screen/); sce_sys/ at the root
 #   third_party/PS5SD       the PS5SD submodule: toolchain wrappers, deps (.deps), the screen's UI kit
 #
@@ -60,12 +60,8 @@ python3 "$W/ps5/patch-multiview.py" "$T"
 sedi '/setvbuf/!s|^    FILE\* f = fopen(path.c_str(), "rb");|    FILE* f = fopen(path.c_str(), "rb"); if (f) setvbuf(f, nullptr, _IOFBF, 16 << 20);|' "$T/src/trellis_model.cpp"
 sedi '/setvbuf/!{s|^    FILE\* f = fopen(path, "wb");|    FILE* f = fopen(path, "wb"); if (f) setvbuf(f, nullptr, _IOFBF, 8 << 20);|; s|FILE\* f=fopen(path,"wb"); if(!f) return false;|FILE* f=fopen(path,"wb"); if(!f) return false; setvbuf(f, nullptr, _IOFBF, 8 << 20);|}' "$T/src/mesh_glb.cpp"
 G=$T/thirdparty/ggml
-if [ ! -f "$G/CMakeLists.txt" ]; then
-    rm -rf "$G"
-    git clone -q https://github.com/pwilkin/ggml "$G"
-    git -C "$G" checkout -q f8697b33795db2ee6a2569b40853ca6aaa69f9b9
-    for p in "$P"/patches/ggml/*.patch; do git -C "$G" apply "$p"; echo "applied $(basename "$p")"; done
-fi
+# The one ggml of the three engines (leejet 0.27 + PS5SD's ggml patches): scripts/ggml-unified.sh, a no-op when already built.
+bash "$W/scripts/ggml-unified.sh" "$G" "$P/patches/ggml"
 
 # Vulkan headers and the clang shim: as in build-app.sh.
 headers=$P/.deps/ps5-vk-headers
