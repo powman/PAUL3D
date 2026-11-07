@@ -1,3 +1,27 @@
+## PAUL3D 0.3.0
+
+PAUL3D é uma versão modificada do [PS5MG](https://github.com/nikay99/PS5MG) de nikay99 (GPL-3.0), voltada para impressão 3D.
+
+### Novo
+- **Comandos de impressão no visualizador.** Abaixo dos botões STL/OBJ, escreva por exemplo `altura 12 cm, base redonda 3 mm`,
+  `largura 80 mm e base quadrada 2 mm margem 5`, `escala 150%` ou `sem base`. A página mostra as medidas finais e a base no 3D antes de baixar.
+- **Foto de trás (experimental).** Uma segunda foto, das costas do objeto, entra junto na geração (TRELLIS.2). Modo "Alternar"
+  (mesmo tempo) ou "Média" (cerca de 2× mais lento) em More options. Na API: campos `back` e `multiview`.
+
+### Corrigido
+- O STL e o OBJ saíam de cabeça para baixo. Agora a peça fica em pé na mesa.
+
+### Ao atualizar do PS5MG
+- A pasta de dados agora é `/data/PAUL3D`. Renomeie `/data/PS5MG` para `/data/PAUL3D` pelo FTP antes de abrir: os modelos continuam valendo.
+- O ID do app continua `PPSA99577`: o PAUL3D substitui o PS5MG no console.
+
+### Antes de começar: os modelos
+O PAUL3D não traz modelos e não baixa nada. Um comando no PC baixa dos autores e copia para o console: veja o README
+(Windows: tools\setup-weights.bat; macOS e Linux: ./tools/setup-weights.sh com o endereço do console). Cerca de 6,5 GB.
+
+### Não testado nesta versão
+- A foto de trás ainda não foi testada no console: compare com e sem ela, mesma seed.
+
 ## PAUL3D 0.2.4
 
 ### New
