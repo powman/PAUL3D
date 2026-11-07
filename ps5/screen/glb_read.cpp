@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace ps5mg {
+namespace paul3d {
 namespace {
 
 uint32_t u32(const uint8_t * p) {
@@ -95,4 +95,4 @@ bool read_glb(const std::string & path, size_t max_bytes, GlbMesh & out, std::st
     return parse_glb(buf.data(), buf.size(), out, err);
 }
 
-}  // namespace ps5mg
+}  // namespace paul3d

@@ -23,7 +23,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: PS5MG version
+      label: PAUL3D version
       placeholder: v0.1.1
     validations:
       required: true

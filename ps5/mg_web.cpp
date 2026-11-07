@@ -1,4 +1,4 @@
-// PS5MG's web interface: a thin layer over the job queue in /data/PS5MG/jobs (the worker in mg_main.cpp runs the
+// PAUL3D's web interface: a thin layer over the job queue in /data/PAUL3D/jobs (the worker in mg_main.cpp runs the
 // jobs). The image goes to in/<id>.png, the job file gets the trellis-cli arguments, the result is out/<id>.glb.
 #include <dirent.h>
 #include <sys/stat.h>
@@ -146,7 +146,7 @@ std::string field(const httplib::Request & req, const char * name, const std::st
     return def;
 }
 
-// Weight folders: each folder of /data/PS5MG/models with the TRELLIS.2 set; pixal3d when its flows are there too.
+// Weight folders: each folder of /data/PAUL3D/models with the TRELLIS.2 set; pixal3d when its flows are there too.
 std::string models_json() {
     std::string o = "[";
     for (const auto & d : list_dir(std::string(kMgDir) + "/models")) {
@@ -228,7 +228,7 @@ int clamp_int(const std::string & s, int lo, int hi, int def) {
     return std::max(lo, std::min(hi, atoi(s.c_str())));
 }
 
-// ---- access: an optional key in /data/PS5MG/api-key.txt (one line). No file, or an empty one: open, as before. ----
+// ---- access: an optional key in /data/PAUL3D/api-key.txt (one line). No file, or an empty one: open, as before. ----
 std::string access_key() {
     std::string k = slurp(std::string(kMgDir) + "/api-key.txt");
     while (!k.empty() && (k.back() == '\n' || k.back() == '\r' || k.back() == ' ')) k.pop_back();
@@ -435,6 +435,13 @@ void mg_web_run(int port) {
         const int         atlas   = clamp_int(field(req, "atlas", ""), 0, 4096, 0);  // 0: the default of the resolution
         if (atlas != 0 && atlas != 512 && atlas != 1024 && atlas != 2048) return fail(400, "atlas is 512, 1024 or 2048");
         const std::string fov     = field(req, "fov", "");
+        // Optional: a picture of the object's back (or any other side), mixed into the flow (--view, see
+        // ps5/patch-multiview.py). TRELLIS.2 only; "stochastic" keeps the time, "mean" doubles the flow stages.
+        const std::string back      = req.has_file("back") ? req.get_file_value("back").content : std::string();
+        const std::string multiview = field(req, "multiview", "stochastic");
+        if (!back.empty() && family != "trellis") return fail(400, "a back picture works with the trellis family only");
+        if (back.size() > (32UL << 20)) return fail(400, "the back picture is too big");
+        if (multiview != "stochastic" && multiview != "mean") return fail(400, "multiview is stochastic or mean");
         if (family == "pixal3d" && !exists(wdir + "/pixal3d_ss_flow.gguf")) return fail(400, "no Pixal3D weights in " + weights);
         if (res_px == 1024 && !exists(wdir + "/shape_flow_1024.gguf")) return fail(400, "no 1024 weights in " + weights);
 
@@ -449,6 +456,12 @@ void mg_web_run(int port) {
             f.write(picture.data(), static_cast<std::streamsize>(picture.size()));
             if (!f) return fail(500, "cannot store the image");
         }
+        const std::string back_img = std::string(kMgIn) + "/" + id + "_back.png";
+        if (!back.empty()) {
+            std::ofstream f(back_img, std::ios::binary);
+            f.write(back.data(), static_cast<std::streamsize>(back.size()));
+            if (!f) return fail(500, "cannot store the back picture");
+        }
         std::ostringstream a;
         a << img << ' ' << kMgOut << '/' << id << ".glb -m " << wdir << " --res " << res_px << " -s " << seed << " --steps "
           << steps << " --fa-fast" << (xatlas ? " --xatlas" : " --box-uv") << (texture ? "" : " --no-texture");
@@ -456,12 +469,14 @@ void mg_web_run(int port) {
         if (family == "pixal3d" && !fov.empty()) a << " --fov " << atof(fov.c_str());
         if (faces >= 1000) a << " --faces " << faces;
         if (atlas > 0) a << " --atlas " << atlas;
+        if (!back.empty()) a << " --view " << back_img << " --multiview " << multiview;
         const std::string label = field(req, "label", "");
         const std::string meta  = "{\"label\":\"" + esc(label.substr(0, 80)) + "\",\"weights\":\"" + esc(weights) +
                                  "\",\"family\":\"" + family + "\",\"res\":" + std::to_string(res_px) + ",\"seed\":" +
                                  std::to_string(seed) + ",\"steps\":" + std::to_string(steps) + ",\"texture\":" +
                                  (texture ? "true" : "false") + ",\"uv\":\"" + (xatlas ? "xatlas" : "box") +
-                                 "\",\"faces\":" + std::to_string(faces) + ",\"atlas\":" + std::to_string(atlas) + "}";
+                                 "\",\"faces\":" + std::to_string(faces) + ",\"atlas\":" + std::to_string(atlas) +
+                                 (back.empty() ? std::string() : ",\"back\":true,\"multiview\":\"" + multiview + "\"") + "}";
         std::ofstream(std::string(kMgJobs) + "/" + id + ".meta") << meta;
         // The job file last, by rename: the worker takes it the moment it is complete.
         std::ofstream(std::string(kMgJobs) + "/" + id + ".job.tmp") << a.str() << '\n';
@@ -472,6 +487,6 @@ void mg_web_run(int port) {
         std::ofstream(std::string(kMgDir) + "/quit") << "1";
         res.set_content("{\"ok\":true}", "application/json");
     });
-    std::printf("ps5mg: web interface on port %d\n", port);
-    if (!svr.listen("0.0.0.0", port)) std::printf("ps5mg: the web server could not listen on port %d\n", port);
+    std::printf("paul3d: web interface on port %d\n", port);
+    if (!svr.listen("0.0.0.0", port)) std::printf("paul3d: the web server could not listen on port %d\n", port);
 }

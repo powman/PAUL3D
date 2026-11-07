@@ -37,7 +37,7 @@ def named(im, big, small, k=1.0):
     d.text(((w - sw) / 2, w * 0.655 + w * 0.185), small, font=fs, fill=(110, 225, 205, 255))
     return im
 
-icon = named(art.resize((512, 512), Image.LANCZOS).convert("RGBA"), "PS5MG", "3D GENERATOR")
+icon = named(art.resize((512, 512), Image.LANCZOS).convert("RGBA"), "PAUL3D", "3D GENERATOR")
 icon.convert("RGB").save(os.path.join(out, "icon0.png"))
 
 def wall(text):
@@ -54,7 +54,7 @@ def wall(text):
     im.alpha_composite(pic, (int(w * 0.70 - size / 2), h // 2 - size // 2))
     if text:
         d2 = ImageDraw.Draw(im)
-        d2.text((330, 800), "PS5MG", font=font(300), fill=(238, 244, 248, 255))
+        d2.text((330, 800), "PAUL3D", font=font(300), fill=(238, 244, 248, 255))
         d2.text((340, 1150), "3D Mesh Generation on PS5", font=font(110, False), fill=(150, 205, 225, 255))
         d2.text((340, 1330), "picture to textured mesh, on the console's own GPU", font=font(70, False), fill=(120, 160, 180, 255))
     else:

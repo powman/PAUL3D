@@ -5,7 +5,7 @@
 | `GET /` | web interface |
 | `GET /api/status` | `busy`, `job`, `stage`, `progress`, `elapsed`, pool memory, thread count, log tail |
 | `GET /api/weights` | which of the q4 model files are on the console: `{"path", "files":[{"name","bytes","have","state":"ok\|partial\|missing","optional","what"}], "complete"}`; read only |
-| `GET /api/models` | families (`trellis`, `pixal3d`) and the weight sets found under `/data/PS5MG/models` |
+| `GET /api/models` | families (`trellis`, `pixal3d`) and the weight sets found under `/data/PAUL3D/models` |
 | `GET /api/jobs` | all jobs with status, settings, seconds, GLB size |
 | `POST /api/jobs` | multipart: `image` (png/jpg) **or** `from_ps5sd` (a file name from PS5SD's pictures), `family`, `weights` (`q4`/`q8`), `res` (512/1024), `texture`, `seed`, `steps`, `faces`, `atlas` (512/1024/2048, default per resolution), `uv`, `fov`, `label` |
 | `GET /api/jobs/<id>/glb` | the mesh (binary glTF) |
@@ -25,7 +25,7 @@ A number outside its range is clamped; a choice that does not exist is answered 
 |---|---|---|---|
 | `image` or `from_ps5sd` | a picture (png/jpg) upload, or a file name from PS5SD's pictures | none (one of the two is required) | the picture to turn into a mesh |
 | `family` | `trellis`, `pixal3d` | `trellis` | the model; Pixal3D needs its weights |
-| `weights` | a folder under `/data/PS5MG/models` (for example `q4`, `q8`) | `q4` | which weight set |
+| `weights` | a folder under `/data/PAUL3D/models` (for example `q4`, `q8`) | `q4` | which weight set |
 | `res` | `512`, `1024` | `512` | resolution of the shape; 1024 needs the 1024 weights |
 | `texture` | `on`, `off` | `on` | `off` gives plain geometry |
 | `seed` | 0 to 2147483647 | `42` | a different seed gives a different variant of the same picture |
@@ -50,7 +50,7 @@ curl -o mesh.glb http://<console>:7870/api/jobs/w20261022-141752-0/glb
 
 ## Access
 
-Open by default. To protect the web interface and the API with a key, put one line in `/data/PS5MG/api-key.txt` on the console
+Open by default. To protect the web interface and the API with a key, put one line in `/data/PAUL3D/api-key.txt` on the console
 (`tools/mg.sh setkey <key>` does it over FTP; an empty key opens it again). The title reads the file on every request, so no restart
 is needed.
 
@@ -63,11 +63,11 @@ is needed.
   cannot start jobs or end the app from a browser on your network. The server sends no CORS header.
 
 `GET /api/jobs/<id>/log` returns the last lines of a job's log (`{"lines":[...]}`), which the page shows for a failed job ("Why?").
-Jobs are plain files in `/data/PS5MG/jobs/<id>.job` (one line of trellis-cli arguments); `tools/mg.sh` and
+Jobs are plain files in `/data/PAUL3D/jobs/<id>.job` (one line of trellis-cli arguments); `tools/mg.sh` and
 `tools/run-queue.sh` drive that queue over FTP.
 
 ## Pictures from PS5SD
 
-PS5SD and PS5MG run on the same console, one at a time. `GET /api/ps5sd/pictures` lists what PS5SD has drawn, and a job can take one
+PS5SD and PAUL3D run on the same console, one at a time. `GET /api/ps5sd/pictures` lists what PS5SD has drawn, and a job can take one
 of them with `from_ps5sd=<file name>` instead of an upload. The name is checked: letters, digits and `. _ -` only, no path, no `..`,
 and a `.png`, `.jpg` or `.jpeg` extension. A name that does not pass is `400`, a missing file is `404`.

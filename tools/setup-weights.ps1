@@ -1,7 +1,7 @@
 # One command: download the model weights (pinned, checked) and copy them to the console over FTP.
 #   powershell -ExecutionPolicy Bypass -File .\tools\setup-weights.ps1 <console-ip> [-Set q4|q8] [-Pixal3d] [-NoBirefnet] [-DownloadOnly] [-UploadOnly] [-Only <file.gguf>] [-AcceptLicenses]
 # Safe to re-run: finished downloads and files already on the console (same size) are skipped.
-# Writes only into models\ on this PC and /data/PS5MG/models/<set>/ on the console; never deletes anything on the console.
+# Writes only into models\ on this PC and /data/PAUL3D/models/<set>/ on the console; never deletes anything on the console.
 param(
   [Parameter(Mandatory, Position = 0)][string]$Ip,
   [string]$Set = 'q4', [switch]$Pixal3d, [switch]$NoBirefnet,
@@ -41,7 +41,7 @@ function RemoteSize($url) {
 if (-not $UploadOnly) {
   if (-not $AcceptLicenses) {
     @'
-These are somebody else's model weights. They are not part of PS5MG and are downloaded from their authors' pages:
+These are somebody else's model weights. They are not part of PAUL3D and are downloaded from their authors' pages:
   TRELLIS.2 (Microsoft, MIT) as GGUF by ilintar:  https://huggingface.co/ilintar/trellis2-gguf
   Pixal3D (MIT) by vegax87:                       https://huggingface.co/vegax87/Pixal3D
   DINOv3, inside every TRELLIS.2 set, is under Meta's own licence (not MIT):
@@ -85,7 +85,7 @@ Using them means you accept their licences. Read them first, especially before y
 }
 
 if (-not $DownloadOnly) {
-  $base = "ftp://${Ip}:2121/data/PS5MG/models/$Set"
+  $base = "ftp://${Ip}:2121/data/PAUL3D/models/$Set"
   & curl.exe -s --connect-timeout 5 -o NUL "ftp://${Ip}:2121/"
   if ($LASTEXITCODE -ne 0) { Die "cannot reach the console at $Ip port 2121. Is the FTP server running on the console? Is the address right?" }
   Write-Host 'Copying to the console. A file that was only half copied is replaced when you run this again.'

@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest something PS5MG could do.
+description: Suggest something PAUL3D could do.
 labels: [enhancement]
 body:
   - type: textarea
@@ -12,4 +12,4 @@ body:
     id: use
     attributes:
       label: How you would use it
-      description: PS5MG stays small: no cloud, no accounts, no hosted weights. See ROADMAP.md.
+      description: PAUL3D stays small: no cloud, no accounts, no hosted weights. See ROADMAP.md.

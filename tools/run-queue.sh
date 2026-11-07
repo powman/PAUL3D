@@ -6,7 +6,7 @@
 set -u
 here=$(cd "$(dirname "$0")/.." && pwd)
 H=${PS5_HOST:?set PS5_HOST to the console address}
-F=ftp://$H:2121/data/PS5MG
+F=ftp://$H:2121/data/PAUL3D
 mkdir -p "$here/out" "$here/compare"
 results=$here/out/queue_results.tsv
 

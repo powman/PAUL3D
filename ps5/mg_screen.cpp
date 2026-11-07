@@ -1,4 +1,4 @@
-// PS5MG's screen: PS5SD's dashboard (ps5/screen, adapted from PS5LM and PS5SD, GPL-3.0) fed from the job state of
+// PAUL3D's screen: PS5SD's dashboard (ps5/screen, adapted from PS5LM and PS5SD, GPL-3.0) fed from the job state of
 // mg_main.cpp instead of from stable-diffusion.cpp. The input picture of the running job is the "preview", the
 // pictures of finished jobs are the "recent" strip.
 #include <arpa/inet.h>
@@ -45,7 +45,7 @@ ps5sd::Dashboard g_view;
 bool             g_ui_ok = false;
 hui::ps5::Pad    g_pad;
 hui::InputTracker g_input;
-ps5mg::MeshView  g_mesh;
+paul3d::MeshView  g_mesh;
 bool             g_viewing = false;
 std::vector<std::string> g_models;  // ids with a GLB in out/, oldest first
 size_t           g_model_at = 0;
@@ -113,7 +113,7 @@ bool show_model() {
     const std::string id = g_models[g_model_at];
     std::string err;
     if (g_mesh.load(std::string(kMgOut) + "/" + id + ".glb", std::string(kMgOut) + "/" + id + "_base.png", err)) return true;
-    std::printf("ps5mg: view %s: %s\n", id.c_str(), err.c_str());
+    std::printf("paul3d: view %s: %s\n", id.c_str(), err.c_str());
     return false;
 }
 
@@ -152,12 +152,12 @@ void view_frame(const hui::InputFrame & in, float dt) {
 bool mg_screen_open() {
     // The screen first: it takes from the same memory pool as the models.
     if (!g_display.open(1920, 1080)) {
-        std::printf("ps5mg: no display\n");
+        std::printf("paul3d: no display\n");
         return false;
     }
     g_ui_ok = g_renderer.init() && g_view.load(g_renderer, kFont);
-    std::printf("ps5mg: pad %s\n", g_pad.open() ? "open" : "not available");
-    std::printf("ps5mg: screen %s\n", g_ui_ok ? "ready" : "failed");
+    std::printf("paul3d: pad %s\n", g_pad.open() ? "open" : "not available");
+    std::printf("paul3d: screen %s\n", g_ui_ok ? "ready" : "failed");
     g_status.set_model("TRELLIS.2 (q4)");
     g_status.set_port(kWebPort);
     g_status.set_phase("Opening the GPU");

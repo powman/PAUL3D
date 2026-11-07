@@ -14,7 +14,7 @@
 extern "C" int scePthreadGetaffinity(pthread_t thread, uint64_t * mask);
 #endif
 
-inline unsigned ps5mg_threads() {
+inline unsigned paul3d_threads() {
 #if defined(__PROSPERO__)
     uint64_t mask = 0;
     if (scePthreadGetaffinity(pthread_self(), &mask) == 0 && mask != 0) {
@@ -27,7 +27,7 @@ inline unsigned ps5mg_threads() {
 }
 
 // pread() the whole range: the console's stdio fread() runs at 92 MB/s, whatever the block or buffer size, where
-// read() does 1 to 2 GB/s (PS5MG's bench-fread and bench-read jobs). scripts/build-mg.sh has the weight loading use this.
+// read() does 1 to 2 GB/s (PAUL3D's bench-fread and bench-read jobs). scripts/build-mg.sh has the weight loading use this.
 #include <unistd.h>
 
 inline bool mg_pread_full(int fd, void * dst, size_t n, int64_t off) {

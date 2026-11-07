@@ -20,10 +20,10 @@ struct MgState {
 extern MgState g_mg;
 double         mg_now();  // seconds since the title started
 
-constexpr const char * kMgDir  = "/data/PS5MG";
-constexpr const char * kMgJobs = "/data/PS5MG/jobs";
-constexpr const char * kMgIn   = "/data/PS5MG/in";
-constexpr const char * kMgOut  = "/data/PS5MG/out";
+constexpr const char * kMgDir  = "/data/PAUL3D";
+constexpr const char * kMgJobs = "/data/PAUL3D/jobs";
+constexpr const char * kMgIn   = "/data/PAUL3D/in";
+constexpr const char * kMgOut  = "/data/PAUL3D/out";
 
 // Serves the web interface; returns when the server stops.
 void mg_web_run(int port);

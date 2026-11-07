@@ -1,4 +1,4 @@
-// bilinear, align_corners=True: PS5MG's version of trellis.cpp's interp() (src/birefnet.cpp). Same samples, but
+// bilinear, align_corners=True: PAUL3D's version of trellis.cpp's interp() (src/birefnet.cpp). Same samples, but
 // channel by channel (the original walked all channels for every pixel, across planes that do not fit the cache),
 // in float, and on all the CPUs the title may use. The decoder's last step, 192 channels to 1024 x 1024, took 25 s.
 static Feat interp(const Feat& x, int Ho, int Wo) {
@@ -24,7 +24,7 @@ static Feat interp(const Feat& x, int Ho, int Wo) {
             }
         }
     };
-    const unsigned nt = std::max(1u, std::min<unsigned>(ps5mg_threads(), (unsigned)x.C));
+    const unsigned nt = std::max(1u, std::min<unsigned>(paul3d_threads(), (unsigned)x.C));
     std::vector<std::thread> pool;
     for (unsigned t = 1; t < nt; ++t) pool.emplace_back(work);
     work();

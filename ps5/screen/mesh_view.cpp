@@ -10,7 +10,7 @@
 #include "glb_read.hpp"
 #include "image_file.hpp"
 
-namespace ps5mg {
+namespace paul3d {
 namespace {
 
 constexpr size_t kMaxGlb = 64u << 20;  // a GLB from before 0.2.3 without texture can be 130 MB
@@ -173,4 +173,4 @@ void MeshView::draw(int w, int h) {
     glDisable(GL_DEPTH_TEST);
 }
 
-}  // namespace ps5mg
+}  // namespace paul3d

@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace ps5mg {
+namespace paul3d {
 
 struct GlbMesh {
     std::vector<float>    pos;    // xyz per vertex
@@ -22,4 +22,4 @@ struct GlbMesh {
 bool parse_glb(const uint8_t * data, size_t size, GlbMesh & out, std::string & err);
 bool read_glb(const std::string & path, size_t max_bytes, GlbMesh & out, std::string & err);
 
-}  // namespace ps5mg
+}  // namespace paul3d

@@ -1,9 +1,9 @@
-# PS5MG: trellis.cpp (CPU + ggml-vulkan on RADV) as static libraries for a PS5 title.
+# PAUL3D: trellis.cpp (CPU + ggml-vulkan on RADV) as static libraries for a PS5 title.
 # Not trellis.cpp's own CMakeLists: no executables, no WebP, none of its direct-Vulkan
 # helper kernels (deform conv and QEM decimation fall back to their CPU code).
 # scripts/build-mg.sh configures this with PS5SD's toolchain.cmake.
 cmake_minimum_required(VERSION 3.18)
-project(ps5mg C CXX)
+project(paul3d C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -25,9 +25,9 @@ set_source_files_properties(${T}/src/decimate_qem.cpp PROPERTIES COMPILE_DEFINIT
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/deform_conv_fast.cpp PROPERTIES COMPILE_OPTIONS "-O3;-mavx2;-mfma")
 target_include_directories(trellis_core PUBLIC ${T}/include ${T}/thirdparty/ggml/include ${T}/thirdparty/stb
   ${T}/thirdparty/xatlas ${T}/thirdparty/meshoptimizer ${T}/thirdparty/fqms)
-target_compile_definitions(trellis_core PRIVATE TRELLIS_BUILD_BACKEND="vulkan" TRELLIS_GIT_COMMIT="ps5mg" TRELLIS_GIT_DIRTY=0
+target_compile_definitions(trellis_core PRIVATE TRELLIS_BUILD_BACKEND="vulkan" TRELLIS_GIT_COMMIT="paul3d" TRELLIS_GIT_DIRTY=0
   TRELLIS_BUILD_TIMESTAMP="0")
-target_compile_options(trellis_core PRIVATE -include ${CMAKE_CURRENT_SOURCE_DIR}/ps5mg_threads.h)
+target_compile_options(trellis_core PRIVATE -include ${CMAKE_CURRENT_SOURCE_DIR}/paul3d_threads.h)
 target_link_libraries(trellis_core PUBLIC ggml ggml-base ggml-cpu ggml-vulkan)
 
 # The CLI's main() becomes a function the title calls.

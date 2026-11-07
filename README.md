@@ -1,6 +1,9 @@
-<p align="center"><img src="docs/images/logo.png" width="160" alt="PS5MG logo"></p>
+<p align="center"><img src="docs/images/logo.png" width="160" alt="PAUL3D logo"></p>
 
-# PS5MG - 3D Mesh Generation on PS5
+# PAUL3D - 3D Mesh Generation on PS5
+
+> PAUL3D is a modified version of [PS5MG](https://github.com/nikay99/PS5MG) by nikay99 (GPL-3.0), made for 3D printing:
+> print commands (size and base) for the STL/OBJ, upright STL/OBJ export, and an optional picture of the object's back.
 
 <p align="center">
   <b>Your PS5 turns a picture into a textured 3D mesh, on its own GPU.</b><br>
@@ -8,15 +11,15 @@
 </p>
 
 <p align="center">
-  <b><a href="https://github.com/nikay99/PS5MG/releases/latest">Get the app</a></b> |
-  <a href="https://nikay99.github.io/PS5MG/">Gallery</a> |
+  <b><a href="https://github.com/powman/PAUL3D/releases/latest">Get the app</a></b> |
+  <a href="https://nikay99.github.io/PS5MG/">Gallery (original PS5MG)</a> |
   <a href="#quick-start">Quick start</a> |
-  <a href="https://github.com/nikay99/PS5MG/issues">Issues</a>
+  <a href="https://github.com/powman/PAUL3D/issues">Issues</a>
 </p>
 
-> **Legal notice, short.** PS5MG contains no model weights and downloads nothing: the title has no network client, only a web
+> **Legal notice, short.** PAUL3D contains no model weights and downloads nothing: the title has no network client, only a web
 > server for your own network. You fetch the weights yourself from their authors, after accepting their licences
-> (`tools/get-weights.sh` asks first). PS5MG is not affiliated with Sony, Microsoft or Meta, ships no exploit and asks for none.
+> (`tools/get-weights.sh` asks first). PAUL3D is not affiliated with Sony, Microsoft or Meta, ships no exploit and asks for none.
 > Details: [Licences, plainly](#licences-plainly) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 <p align="center">
@@ -27,7 +30,7 @@
 Drop a picture in the web interface and get a game-ready GLB (150k faces, 1024 px texture) in one to three minutes, made
 entirely on the console's own GPU.
 
-PS5MG is the third title in the line of [PS5LM](https://github.com/cobanov/PS5LM) (language models) and
+PAUL3D is the third title in the line of [PS5LM](https://github.com/cobanov/PS5LM) (language models) and
 [PS5SD](https://github.com/Darkatek7/PS5SD) (Stable Diffusion): same toolchain, same screen, same install.
 Title id `PPSA99577`.
 
@@ -70,7 +73,7 @@ Title id `PPSA99577`.
   [Pixal3D](https://huggingface.co/vegax87/Pixal3D) (a pixel-aligned TRELLIS.2 fine-tune, closer to the picture, geometry only at 512).
 - A job queue on disk, so the console can be driven by files over FTP too (`tools/mg.sh`, `tools/run-queue.sh`).
 
-![a picture and the textured mesh PS5MG made from it on the console](docs/images/hero.jpg)
+![a picture and the textured mesh PAUL3D made from it on the console](docs/images/hero.jpg)
 
 ## Quick start
 
@@ -78,17 +81,17 @@ Title id `PPSA99577`.
 Linux) on the same network, and about 7 GB free on the console. Which exploit and firmware you need is outside this project, as with
 PS5SD and PS5LM.
 
-### 1. Install PS5MG
+### 1. Install PAUL3D
 
-- **From the PS5 Homebrew Store** (ProsperoStore, [prosperostore.net](https://prosperostore.net)): search for PS5MG.
-- **Or by hand:** download `PPSA99577.zip` from the [latest release](https://github.com/nikay99/PS5MG/releases/latest), unzip it, copy the
+- **From the PS5 Homebrew Store** (ProsperoStore, [prosperostore.net](https://prosperostore.net)): search for PAUL3D.
+- **Or by hand:** download `PPSA99577.zip` from the [latest release](https://github.com/powman/PAUL3D/releases/latest), unzip it, copy the
   folder `PPSA99577` to `/data/homebrew` on the console with any FTP client (port 2121), then rescan in ShadowMountPlus.
   (Or build it yourself: [docs/BUILDING.md](docs/BUILDING.md).)
 
 ### 2. Put the model files on the console (one command)
 
-PS5MG does not include the model files (about 6.5 GB). One command on your PC downloads them from their authors, checks them and copies
-them to the console. First get the PS5MG tools: **[Download ZIP](https://github.com/nikay99/PS5MG/archive/refs/heads/main.zip)** and unzip it
+PAUL3D does not include the model files (about 6.5 GB). One command on your PC downloads them from their authors, checks them and copies
+them to the console. First get the PAUL3D tools: **[Download ZIP](https://github.com/powman/PAUL3D/archive/refs/heads/main.zip)** and unzip it
 (or `git clone` this repository). Then, in that folder, use your console's address in place of `192.168.1.50`:
 
 **Windows**: double-click `tools\setup-weights.bat` (it asks for the address), or in a terminal:
@@ -104,13 +107,13 @@ powershell -ExecutionPolicy Bypass -File .\tools\setup-weights.ps1 192.168.1.50
 ```
 
 It shows the licences of the models and asks you to type `yes`; then it downloads, checks every file and copies it to
-`/data/PS5MG/models/q4/` on the console. If it stops (Wi-Fi, sleep), run it again: it continues where it was and skips what is already there.
+`/data/PAUL3D/models/q4/` on the console. If it stops (Wi-Fi, sleep), run it again: it continues where it was and skips what is already there.
 Options: `--no-birefnet` leaves out the 883 MB cut-out model (optional, a simple cut-out is used instead), `--pixal3d` adds the Pixal3D files,
 `--set q8` uses the larger q8 set. The PowerShell version takes `-NoBirefnet`, `-Pixal3d` and `-Set q8`.
 
 ### 3. Make your first mesh
 
-Start PS5MG from its icon, open `http://<console>:7870` in a browser, drop a picture. A textured mesh is ready in one to three minutes.
+Start PAUL3D from its icon, open `http://<console>:7870` in a browser, drop a picture. A textured mesh is ready in one to three minutes.
 The page tells you if a model file is still missing, and which one.
 
 ### If something does not work
@@ -128,7 +131,7 @@ Glass and flames get lost in the mesh; that is the model, not the console.
 
 **[Turn them around in the gallery](https://nikay99.github.io/PS5MG/)**: ten of these, as meshes you can rotate in the browser.
 
-Every picture below was drawn on the console too: PS5SD running Z-Image Turbo (about 85 s each), then PS5MG (1:44 to 4:04 per
+Every picture below was drawn on the console too: PS5SD running Z-Image Turbo (about 85 s each), then PAUL3D (1:44 to 4:04 per
 mesh, 150k faces, 1024 px texture). The renders are the GLB files as they come out, lit in three.js (`tools/render-glb.py`).
 
 ### Game assets
@@ -202,7 +205,7 @@ The first run on the console, with trellis.cpp as it is, took 19:51 and had no t
 | `ps5/decimate_qem_fast.cpp` | the QEM simplifier was single threaded around one big hash map | 10x faster, same result on the test mesh (`tools/test-decimate`) |
 | `ps5/birefnet_interp.inc` | the decoder's last upscale (192 channels to 1024 x 1024) walked the channels per pixel on one thread | 25 s to about 1 s |
 | `read()` instead of `fread` | the console's stdio reads 92 MB/s whatever the buffer, `read()` does 1 to 2 GB/s | loading the weights: 56 s to 4 s |
-| `ps5/ps5mg_threads.h` | `hardware_concurrency()` says 16, a title may use the CPUs of its affinity mask (minus two) | no oversubscription |
+| `ps5/paul3d_threads.h` | `hardware_concurrency()` says 16, a title may use the CPUs of its affinity mask (minus two) | no oversubscription |
 | no PLY next to the GLB | doubled the file writes | seconds |
 | Pixal3D orientation | its meshes are y-up already, the GLB writer turned them again | upright GLB |
 | a fresh process per job | a second job in the same process ran 4 to 9 times slower, GPU stages included | the title restarts itself after every job |
@@ -213,7 +216,7 @@ More numbers and the variant study (steps, q8, atlas size, face budget, seeds, P
 
 ## Where the weights come from
 
-PS5MG has no model weights of its own and never downloads any: the command above (or you, by hand) gets them from their authors, once.
+PAUL3D has no model weights of its own and never downloads any: the command above (or you, by hand) gets them from their authors, once.
 This is what it fetches, from [ilintar/trellis2-gguf](https://huggingface.co/ilintar/trellis2-gguf) (TRELLIS.2 as GGUF, folder `q4`, a fixed
 revision). **Each name is a direct download link** if you prefer your browser:
 
@@ -230,13 +233,13 @@ revision). **Each name is a direct download link** if you prefer your browser:
 | [`tex_flow_1024.gguf`](https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/q4/tex_flow_1024.gguf) | 731 MB | only for resolution 1024 |
 | [`tex_flow_512.gguf`](https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/q4/tex_flow_512.gguf) | 731 MB | colours and material |
 
-Copy them with any FTP client to `/data/PS5MG/models/q4/` on the console. The exact revision and the SHA-256 of every file are in
+Copy them with any FTP client to `/data/PAUL3D/models/q4/` on the console. The exact revision and the SHA-256 of every file are in
 [tools/weights.sha256](tools/weights.sha256).
 
 <details>
 <summary>More: the q8 set, Pixal3D, and the licences</summary>
 
-**q8** is the same set at higher precision (about twice as big), in the folder `q8` of the same page; copy it to `/data/PS5MG/models/q8/`.
+**q8** is the same set at higher precision (about twice as big), in the folder `q8` of the same page; copy it to `/data/PAUL3D/models/q8/`.
 
 **Pixal3D** ([vegax87/Pixal3D](https://huggingface.co/vegax87/Pixal3D)) is an optional second model. Its five files go into the **same folder**
 as your TRELLIS set, because they share `dinov3.gguf`:
@@ -291,7 +294,7 @@ This is a port and a glue project; the hard work is other people's.
 - **[cpp-httplib](https://github.com/yhirose/cpp-httplib)** (web server, shipped with trellis.cpp) and
   **[three.js](https://threejs.org)** (viewer, loaded from a CDN).
 
-PS5MG is an independent hobby project. It is not affiliated with, authorised or endorsed by Sony Interactive Entertainment,
+PAUL3D is an independent hobby project. It is not affiliated with, authorised or endorsed by Sony Interactive Entertainment,
 Microsoft, Meta or any of the projects above. "PlayStation" and "PS5" are trademarks of Sony Interactive Entertainment.
 
 ## Licences, plainly
@@ -300,8 +303,8 @@ Not legal advice. Read the originals if money is involved.
 
 | part | licence |
 |---|---|
-| **PS5MG as built (the title)** | **GPL-3.0** (see `LICENSE`): the screen and build code come from PS5SD and PS5LM, which are GPL-3.0 |
-| PS5MG's own sources (`ps5/`, `scripts/`, `tools/`) | GPL-3.0, as part of this repository |
+| **PAUL3D as built (the title)** | **GPL-3.0** (see `LICENSE`): the screen and build code come from PS5SD and PS5LM, which are GPL-3.0 |
+| PAUL3D's own sources (`ps5/`, `scripts/`, `tools/`) | GPL-3.0, as part of this repository |
 | trellis.cpp, ggml, cpp-httplib | MIT |
 | TRELLIS.2 (code and weights) | MIT (Microsoft) |
 | Pixal3D weights | MIT, as stated on its Hugging Face page |
@@ -314,7 +317,7 @@ Not legal advice. Read the originals if money is involved.
 no game code. You download the weights yourself (`tools/get-weights.sh`) from their original sources, under their licences.
 The title is built from source in CI or in Docker with open-source homebrew toolchains.
 
-**Your meshes:** TRELLIS.2 is MIT-licensed and PS5MG adds no restriction on what comes out. What you make comes from your
+**Your meshes:** TRELLIS.2 is MIT-licensed and PAUL3D adds no restriction on what comes out. What you make comes from your
 pictures, so you need the rights to the pictures you put in. If you sell what you make, check the DINOv3 licence above.
 
 **Running homebrew** needs a jailbroken console, which is your own choice and risk and may conflict with the terms of your

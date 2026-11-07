@@ -1,4 +1,4 @@
-// PS5MG's modulated deformable conv2d for BiRefNet's ASPPDeformable, in place of trellis.cpp's
+// PAUL3D's modulated deformable conv2d for BiRefNet's ASPPDeformable, in place of trellis.cpp's
 // src/deform_conv_cpu.cpp (same two functions, same layout and border rule).
 //
 // The original samples the input again for every output channel and input channel. This one samples once per
@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "deform_conv.h"
-#include "ps5mg_threads.h"
+#include "paul3d_threads.h"
 
 #if defined(__AVX2__) && defined(__FMA__)
 #include <immintrin.h>
@@ -123,7 +123,7 @@ void deform_conv2d_cpu(const float * x, int Cin, int H, int W, const float * off
         }
     };
 
-    const unsigned    hw_threads = ps5mg_threads();
+    const unsigned    hw_threads = paul3d_threads();
     const int         nthreads   = (int) std::max<long>(1, std::min<long>(nblocks, hw_threads ? (long) hw_threads : 4));
     std::vector<std::thread> pool;
     for (int t = 1; t < nthreads; t++) pool.emplace_back(worker);

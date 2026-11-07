@@ -1,6 +1,6 @@
 # Roadmap
 
-PS5MG stays small on purpose: a picture goes in, a mesh comes out, on the console, with nothing else to run. No cloud, no
+PAUL3D stays small on purpose: a picture goes in, a mesh comes out, on the console, with nothing else to run. No cloud, no
 accounts, no weights hosted here. Every item below should be something you can show in a short clip.
 
 ## Done
@@ -11,7 +11,7 @@ accounts, no weights hosted here. Every item below should be something you can s
 - **STL and OBJ downloads** next to GLB, made in the browser, set up for printing (standing on the plate, scaled to the size you give).
 - **Quality presets** (Fast, Balanced, Detailed) instead of a wall of settings, and a dice for a random seed.
 - **Several pictures at once:** drop a handful, each becomes a job.
-- **Pick a picture PS5SD made** on the same console, instead of copying files around. (Only a picker: PS5MG and PS5SD stay separate apps.)
+- **Pick a picture PS5SD made** on the same console, instead of copying files around. (Only a picker: PAUL3D and PS5SD stay separate apps.)
 - A gallery page with turnable examples, a quick start with requirements, and issue templates.
 
 ## 0.2.1: setting up the weights is easier to understand

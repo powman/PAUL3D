@@ -64,7 +64,7 @@ pattern (CPU stages 2.5 times slower after hours of jobs, cured by restarting th
 
 **The cause (found for 0.2.3):** writing to the console's storage. A job's GLB took 0.3 s to write on a fresh console and 15 to 38 s
 after about 15 jobs; one log line took up to 0.7 s. The CPU, its cores, the memory and the GPU stayed as fast as at the start (measured
-with probes before, after and during the jobs). Two things in PS5MG made it much worse:
+with probes before, after and during the jobs). Two things in PAUL3D made it much worse:
 
 - Jobs without texture skipped the face budget and wrote the whole decoded mesh, about 4.7 million faces or 30 to 130 MB a GLB (2 GB after
   50 jobs). Now they are simplified like textured jobs (`ps5/patch-notex-faces.py`): about 0.3 MB.
@@ -93,7 +93,7 @@ picture (the mushroom). A job is about 10 s longer than the fastest ones before,
 The first run on the console, with trellis.cpp unchanged, took 19:51 and had no texture; freeing the picture's
 background alone took 875 s. After the changes listed in the README, the stages are: background removal and image features
 (seconds), sparse structure, shape flow, mesh extraction and simplification, texture flow and PBR decode, and the write.
-`tools/runinfo.py <job.log>` prints the stage times of a job from its log (`/data/PS5MG/logs/<job>.log`).
+`tools/runinfo.py <job.log>` prints the stage times of a job from its log (`/data/PAUL3D/logs/<job>.log`).
 
 ## Picture rules (PC trial, RX 7800 XT)
 

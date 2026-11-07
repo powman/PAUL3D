@@ -101,7 +101,7 @@ Rect contain(const Rect & area, int w, int h) {
 hui::ui::Theme make_theme() {
     hui::ui::Theme t = hui::ui::default_theme();
     t.id             = "ps5sd";
-    t.name           = "PS5MG";
+    t.name           = "PAUL3D";
     t.family         = "Night tiles";
     t.summary        = "The kit's Pulse dashboard language";
     t.page           = Color::rgb(0x0a0e1a);
@@ -482,7 +482,7 @@ void Dashboard::sync_components(float dt) {
             break;
         case State::error:
             empty_.title = "Something went wrong";
-            empty_.body  = "The log below and /data/PS5MG/app.log say what.";
+            empty_.body  = "The log below and /data/PAUL3D/app.log say what.";
             break;
         case State::stopped:
             if (!s.tv_images) {
@@ -599,7 +599,7 @@ void Dashboard::compose_viewer(hui::gfx::Renderer & renderer, const std::string 
 }
 
 void Dashboard::draw_header(DrawList & list, const char * version) const {
-    const float w = hui::ui::text(list, fonts_.display, "PS5MG", 96, 112, 58, kInk);
+    const float w = hui::ui::text(list, fonts_.display, "PAUL3D", 96, 112, 58, kInk);
     char sub[160];
     std::snprintf(sub, sizeof(sub), "v%s  %s  TRELLIS.2 image to 3D on the console's GPU", version, kDot);
     hui::ui::text(list, fonts_.regular, sub, 96 + w + 28, 112, 24, with_a(kInk, kMuted));
@@ -799,7 +799,7 @@ void Dashboard::draw_activity(DrawList & list, const Rect & r) const {
     const float base = r.y + r.h - 32;
     const float x    = r.x + kPad;
     if (generating && s.steps > 0 && s.step > 0) {
-        // PS5MG: the progress is the share of the whole job (stages and flow steps), so the time left is that
+        // PAUL3D: the progress is the share of the whole job (stages and flow steps), so the time left is that
         // share's rate carried on; there is no speed in steps per second to show.
         draw_stat(list, "Elapsed", seconds_text(s.job_s), x, base);
         const double left = s.step_s > 0 ? (double) (s.steps - s.step) * s.step_s : -1;

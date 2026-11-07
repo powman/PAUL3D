@@ -2,7 +2,7 @@
 import re, sys
 src, inc = sys.argv[1], sys.argv[2]
 s = open(src, newline="").read()
-if "PS5MG interp" in s or "PS5MG's version of trellis.cpp's interp" in s:
+if "PAUL3D interp" in s or "PAUL3D's version of trellis.cpp's interp" in s:
     sys.exit(0)
 crlf = "\r\n" in s
 s = s.replace("\r\n", "\n")

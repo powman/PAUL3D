@@ -1,5 +1,5 @@
 """Build-time patch of trellis.cpp's src/trellis_model.cpp: the weight loading reads with mg_pread_full() instead of
-fseek + fread (ps5/ps5mg_threads.h). Idempotent."""
+fseek + fread (ps5/paul3d_threads.h). Idempotent."""
 import sys
 
 path = sys.argv[1]

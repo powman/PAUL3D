@@ -1,4 +1,4 @@
-// PS5MG's screen on the PC: renders a few states of the dashboard to PNG files through Mesa's surfaceless EGL
+// PAUL3D's screen on the PC: renders a few states of the dashboard to PNG files through Mesa's surfaceless EGL
 // (llvmpipe), with the same calls mg_screen.cpp makes (AppStatus setters, Dashboard::update, Dashboard::compose).
 // Adapted from PS5SD's ps5/app/preview/preview_main.cpp (GPL-3.0). Built and run by tools/preview-screen.sh.
 //
@@ -143,12 +143,12 @@ int main(int argc, char ** argv) {
         status.set_result(pic[(size_t) i]);
         frames(4);
     }
-    status.log("done in 113.3s -> /data/PS5MG/out/c0_lantern_tex.glb");
+    status.log("done in 113.3s -> /data/PAUL3D/out/c0_lantern_tex.glb");
     frames(240);
     ok = capture("03-done", 0, 113.3) && ok;
 
     // 4. An error.
-    status.set_phase("Job failed", "Out of device memory in the texture stage. See /data/PS5MG/app.log");
+    status.set_phase("Job failed", "Out of device memory in the texture stage. See /data/PAUL3D/app.log");
     frames(60);
     ok = capture("04-error", 0, -1) && ok;
 
@@ -159,7 +159,7 @@ int main(int argc, char ** argv) {
     ok = capture("05-log", 0, 113.3) && ok;
 
     // 6. A model on the screen (the repository's out/ folder, when it has the blaster).
-    ps5mg::MeshView mesh;
+    paul3d::MeshView mesh;
     std::string     err;
     if (mesh.load("/src/out/z_lantern.glb", "/src/out/z_lantern_base.png", err)) {
         mesh.turn(0.5f, 0.0f);

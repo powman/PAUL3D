@@ -1,4 +1,4 @@
-"""Reads a PS5MG job log (out/ps5_<name>.log, the stamped log of one job) into stage times.
+"""Reads a PAUL3D job log (out/ps5_<name>.log, the stamped log of one job) into stage times.
 usage: python runinfo.py out/ps5_b05_sword_tex.log
 Stages are the '[n/N] ...' lines of trellis-cli; the seconds are those the console's clock measured in the job."""
 import re

@@ -2,7 +2,7 @@
 # One command: download the model weights (pinned, checked) and copy them to the console over FTP.
 #   ./tools/setup-weights.sh <console-ip> [--set q4|q8] [--pixal3d] [--no-birefnet] [--download-only] [--upload-only] [--only <file.gguf>] [--accept-licenses]
 # Safe to re-run after any interruption: finished downloads and files already on the console (same size) are skipped.
-# Writes only into models/ on this PC and /data/PS5MG/models/<set>/ on the console; never deletes anything on the console.
+# Writes only into models/ on this PC and /data/PAUL3D/models/<set>/ on the console; never deletes anything on the console.
 set -u
 cd "$(dirname "$0")/.." || exit 1
 . tools/weights-lib.sh
@@ -80,7 +80,7 @@ if [ $dl = 1 ]; then
 fi
 
 if [ $ul = 1 ]; then
-  base=ftp://$ip:2121/data/PS5MG/models/$set
+  base=ftp://$ip:2121/data/PAUL3D/models/$set
   curl -s --connect-timeout 5 -o /dev/null "ftp://$ip:2121/" || die "cannot reach the console at $ip port 2121. Is the FTP server running on the console? Is the address right?"
   echo "Copying to the console. A file that was only half copied is replaced when you run this again."
   n=0

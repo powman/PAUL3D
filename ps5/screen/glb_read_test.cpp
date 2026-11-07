@@ -8,9 +8,9 @@
 
 int main(int argc, char ** argv) {
     if (argc < 3) return 2;
-    ps5mg::GlbMesh m;
+    paul3d::GlbMesh m;
     std::string    err;
-    if (!ps5mg::read_glb(argv[1], 256u << 20, m, err)) {
+    if (!paul3d::read_glb(argv[1], 256u << 20, m, err)) {
         std::printf("FAIL %s: %s\n", argv[1], err.c_str());
         return 1;
     }
@@ -21,9 +21,9 @@ int main(int argc, char ** argv) {
     assert(m.attr_n == want);
     assert(m.attr.size() == V * want);
     std::string e2;
-    ps5mg::GlbMesh bad;
+    paul3d::GlbMesh bad;
     const unsigned char junk[40] = {0};
-    assert(!ps5mg::parse_glb(junk, sizeof(junk), bad, e2));  // refuses what is not a GLB
+    assert(!paul3d::parse_glb(junk, sizeof(junk), bad, e2));  // refuses what is not a GLB
     std::puts("ok");
     return 0;
 }

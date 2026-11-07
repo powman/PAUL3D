@@ -6,7 +6,7 @@ MANIFEST="$(dirname "${BASH_SOURCE[0]}")/weights.sha256"
 accept_licenses() {
   case " ${*:-} " in *" --accept-licenses "*) return 0 ;; esac
   cat <<'EOT'
-These are somebody else's model weights. They are not part of PS5MG and are downloaded from their authors' pages:
+These are somebody else's model weights. They are not part of PAUL3D and are downloaded from their authors' pages:
   TRELLIS.2 (Microsoft, MIT) as GGUF by ilintar:  https://huggingface.co/ilintar/trellis2-gguf
   Pixal3D (MIT) by vegax87:                       https://huggingface.co/vegax87/Pixal3D
   DINOv3, inside every TRELLIS.2 set, is under Meta's own licence (not MIT):

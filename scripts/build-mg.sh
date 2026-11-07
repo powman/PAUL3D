@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds PS5MG (trellis.cpp as a PS5 title) in the ps5sd-build container (docker/ of the PS5SD submodule),
+# Builds PAUL3D (trellis.cpp as a PS5 title) in the ps5sd-build container (docker/ of the PS5SD submodule),
 # with the repository mounted at /work, after scripts/setup-deps.sh (see docs/BUILDING.md). Recipe: PS5SD's
 # scripts/build-app.sh (adapted from PS5LM, GPL-3.0).
 #   .deps/trellis.cpp       trellis.cpp @ 8e4ce11 + pwilkin/ggml @ f8697b3 + PS5SD's patches/ggml (cloned here)
@@ -42,17 +42,19 @@ if [ ! -d "$T/.git" ]; then
     git clone -q https://github.com/pwilkin/trellis.cpp "$T"
     git -C "$T" checkout -q 8e4ce11a77d35c3e3a4b3f84a29d92bf5491e64e
 fi
-# Worker pools by the CPUs the title may use, not by hardware_concurrency() (ps5/ps5mg_threads.h).
-sedi 's/std::thread::hardware_concurrency()/ps5mg_threads()/g' "$T"/src/*.cpp
+# Worker pools by the CPUs the title may use, not by hardware_concurrency() (ps5/paul3d_threads.h).
+sedi 's/std::thread::hardware_concurrency()/paul3d_threads()/g' "$T"/src/*.cpp
 # The PLY next to every GLB doubles the file writes (14 s on the console): off unless wanted.
 sedi '/TRELLIS_KEEP_PLY/!s/^    trellis::write_ply(ply.c_str()/    if (!std::getenv("TRELLIS_KEEP_PLY")) {} else trellis::write_ply(ply.c_str()/' "$T/src/trellis_cli.cpp"
 # Pixal3D meshes come out of the decoder y-up already (TRELLIS ones z-up); write_glb turns every mesh from z-up to
-# y-up, which left Pixal3D's lying on their back. mg_main.cpp sets PS5MG_YUP_NATIVE for a --model pixal3d job.
-sedi '/PS5MG_YUP_NATIVE/!{s/float p\[3\] = { ox, oz, -oy };/float p[3] = { ox, oz, -oy }; if (std::getenv("PS5MG_YUP_NATIVE")) { p[1] = oy; p[2] = oz; }/; s/float p\[3\]={ox,oz,-oy};/float p[3]={ox,oz,-oy}; if (std::getenv("PS5MG_YUP_NATIVE")) { p[1] = oy; p[2] = oz; }/}' "$T/src/mesh_glb.cpp"
+# y-up, which left Pixal3D's lying on their back. mg_main.cpp sets PAUL3D_YUP_NATIVE for a --model pixal3d job.
+sedi '/PAUL3D_YUP_NATIVE/!{s/float p\[3\] = { ox, oz, -oy };/float p[3] = { ox, oz, -oy }; if (std::getenv("PAUL3D_YUP_NATIVE")) { p[1] = oy; p[2] = oz; }/; s/float p\[3\]={ox,oz,-oy};/float p[3]={ox,oz,-oy}; if (std::getenv("PAUL3D_YUP_NATIVE")) { p[1] = oy; p[2] = oz; }/}' "$T/src/mesh_glb.cpp"
 # BiRefNet's bilinear upscale: parallel, channel by channel (ps5/birefnet_interp.inc).
 python3 "$W/ps5/patch-trellis-io.py" "$T/src/trellis_model.cpp"
 python3 "$W/ps5/patch-notex-faces.py" "$T/src/trellis_cli.cpp"
 python3 "$W/ps5/patch-birefnet.py" "$T/src/birefnet.cpp" "$W/ps5/birefnet_interp.inc"
+# A picture of the back (or other sides) next to the main one: trellis-cli --view (ps5/patch-multiview.py).
+python3 "$W/ps5/patch-multiview.py" "$T"
 # Big stdio buffers for the weights and the GLB: the console's libc reads and writes a file in buffer-sized pieces
 # (a few KB by default), which held the weight loading to about 90 MB/s.
 sedi '/setvbuf/!s|^    FILE\* f = fopen(path.c_str(), "rb");|    FILE* f = fopen(path.c_str(), "rb"); if (f) setvbuf(f, nullptr, _IOFBF, 16 << 20);|' "$T/src/trellis_model.cpp"
@@ -145,8 +147,8 @@ if [ $display = 1 ]; then
         while read -r name; do us+=(-u "$name"); done < "$out/gl/api.txt"
         "$sdk/bin/ld.lld" -r "${us[@]}" -u ps5_agc_gate2_run --start-group "${gllibs[@]}" --end-group -o "$out/gl/gl_all.o"
         "$sdk/bin/llvm-objcopy" --keep-global-symbols="$out/gl/api.txt" "$out/gl/gl_all.o" "$gl"
-        rm -f "$out/gl/gl_all.o" "$out/gl/libps5mg_gl.a"
-        "$sdk/bin/llvm-ar" rcs "$out/gl/libps5mg_gl.a" "$gl"
+        rm -f "$out/gl/gl_all.o" "$out/gl/libpaul3d_gl.a"
+        "$sdk/bin/llvm-ar" rcs "$out/gl/libpaul3d_gl.a" "$gl"
     fi
     # ps5-homebrew-ui's kit (gfx, ui, core, audio and its console platform layer), drawn through ps5-opengl.
     kitflags=(-O2 -ffunction-sections -fdata-sections "${kitinc[@]}" -I "$scr")
@@ -166,8 +168,8 @@ if [ $display = 1 ]; then
         (( $(jobs -r | wc -l) >= $(nproc) )) && wait -n
     done
     wait
-    rm -f "$obj/libps5mg_kit.a"
-    "$sdk/bin/llvm-ar" rcs "$obj/libps5mg_kit.a" "${kit_objects[@]}"
+    rm -f "$obj/libpaul3d_kit.a"
+    "$sdk/bin/llvm-ar" rcs "$obj/libpaul3d_kit.a" "${kit_objects[@]}"
 fi
 
 # AGC stubs: the imports every driver of the title makes (the GL object and RADV; RADV alone without a screen).
@@ -197,7 +199,7 @@ done
 [ $display = 1 ] && link_flags+=(--wrap=sceAgcInit)
 mapfile -t libs < <(find "$out/cm" -name '*.a' | sort)
 local_archives=("${libs[@]}" "$obj/libps5app_compat.a")
-[ $display = 1 ] && local_archives+=("$obj/libps5mg_kit.a" "$out/gl/libps5mg_gl.a")
+[ $display = 1 ] && local_archives+=("$obj/libpaul3d_kit.a" "$out/gl/libpaul3d_gl.a")
 sdk_stubs=("$sdk"/target/lib/*.so)
 
 "$sdk/bin/prospero-lld" "${radv_linker_script[@]}" --eh-frame-hdr "${link_flags[@]}" \
@@ -226,7 +228,7 @@ if [ $display = 1 ]; then
 fi
 # Licences and the source offer (GPL-3.0 title; trellis.cpp and ggml are MIT).
 mkdir -p "$app/licenses"
-cp "$W/LICENSE" "$app/licenses/PS5MG-GPL-3.0.txt"
+cp "$W/LICENSE" "$app/licenses/PAUL3D-GPL-3.0.txt"
 cp "$T/LICENSE" "$app/licenses/trellis.cpp-MIT.txt"
 cp "$T/thirdparty/ggml/LICENSE" "$app/licenses/ggml-MIT.txt"
 cp "$W/THIRD_PARTY_NOTICES.md" "$app/licenses/THIRD_PARTY_NOTICES.md"
@@ -236,7 +238,7 @@ for d in "$T"/thirdparty/*/; do   # the licence files that ship with trellis.cpp
 done
 rev=$(git -C "$W" rev-parse HEAD 2> /dev/null || echo unknown)
 cat > "$app/SOURCE.txt" <<EOT
-PS5MG (title PPSA99577), built from https://github.com/nikay99/PS5MG at commit $rev
+PAUL3D (title PPSA99577), built from https://github.com/powman/PAUL3D at commit $rev
 trellis.cpp 8e4ce11a77d35c3e3a4b3f84a29d92bf5491e64e + ggml f8697b33795db2ee6a2569b40853ca6aaa69f9b9 (see scripts/build-mg.sh)
 No model weights are included: see the README (Licences) and tools/get-weights.sh.
 EOT

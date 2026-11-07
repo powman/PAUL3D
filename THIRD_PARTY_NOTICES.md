@@ -1,12 +1,13 @@
 # Third-party notices
 
-PS5MG's own code is GPL-3.0 (`LICENSE`). The title also contains, or is built with, the following. Each keeps its own
+PAUL3D's own code is GPL-3.0 (`LICENSE`). The title also contains, or is built with, the following. Each keeps its own
 licence, and the licence texts that ship with their sources are copied into `licenses/` of the title.
 
 ## In the title
 
 | Component | What for | Copyright | Licence |
 |---|---|---|---|
+| [PS5MG](https://github.com/nikay99/PS5MG) | the project PAUL3D is a modified version of | nikay99 | GPL-3.0 |
 | [trellis.cpp](https://github.com/pwilkin/trellis.cpp) | the TRELLIS.2 and Pixal3D pipeline in C++ | Piotr Wilkin | MIT |
 | [ggml](https://github.com/pwilkin/ggml) (fork of ggml-org/ggml) | tensor library, Vulkan backend | The ggml authors | MIT |
 | [cpp-httplib](https://github.com/yhirose/cpp-httplib) | the web server | Yuji Hirose | MIT |
@@ -24,9 +25,9 @@ licence, and the licence texts that ship with their sources are copied into `lic
 
 The model weights: TRELLIS.2 (Microsoft, MIT), the GGUF conversion by ilintar, Pixal3D (vegax87, MIT), BiRefNet (MIT)
 and DINOv3 (Meta, **Meta's own licence**). You download them yourself (`tools/get-weights.sh` asks you to accept their
-licences first) and copy them to your console. PS5MG never downloads anything: it has no network client at all, only a web
+licences first) and copy them to your console. PAUL3D never downloads anything: it has no network client at all, only a web
 server for your own network.
 
-PS5MG is not affiliated with or endorsed by Sony Interactive Entertainment, Microsoft or Meta. "PlayStation" and "PS5" are
+PAUL3D is not affiliated with or endorsed by Sony Interactive Entertainment, Microsoft or Meta. "PlayStation" and "PS5" are
 trademarks of Sony Interactive Entertainment; TRELLIS is the name of Microsoft's model; DINOv3 is Meta's. They are named
-here only to say what PS5MG works with.
+here only to say what PAUL3D works with.

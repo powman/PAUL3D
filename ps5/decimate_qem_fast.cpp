@@ -1,4 +1,4 @@
-// PS5MG's QEM edge-collapse simplifier, in place of trellis.cpp's src/decimate_qem.cpp (which is compiled under
+// PAUL3D's QEM edge-collapse simplifier, in place of trellis.cpp's src/decimate_qem.cpp (which is compiled under
 // the name decimate_qem_orig and used for the rare env switches this one does not do).
 //
 // Same algorithm and same threshold ladder as the original (CuMesh's simplify.cu: Garland-Heckbert quadrics, edge
@@ -21,7 +21,7 @@
 #include <thread>
 #include <vector>
 
-#include "ps5mg_threads.h"
+#include "paul3d_threads.h"
 #include "uv_bake.h"
 
 namespace trellis {
@@ -60,7 +60,7 @@ inline uint64_t pack_cost(int id, float c) {
     return ((uint64_t) b << 32) | (uint32_t) id;
 }
 
-unsigned thread_count() { return std::max(1u, ps5mg_threads()); }
+unsigned thread_count() { return std::max(1u, paul3d_threads()); }
 
 // fn(begin, end) over [0, n) in blocks, on all threads; blocks are handed out in order.
 template <class Fn>

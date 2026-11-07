@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Puts PS5MG on the console over FTP (2121): the title, the 512-path models, a test image. Nothing is deleted.
+# Puts PAUL3D on the console over FTP (2121): the title, the 512-path models, a test image. Nothing is deleted.
 set -u
 H=${PS5_HOST:?set PS5_HOST to the console address}
 cd "$(dirname "$0")/.." || exit 1
@@ -10,11 +10,11 @@ put() { # local remote
 for f in build-ps5/PPSA99577/eboot.bin build-ps5/PPSA99577/sce_module/libc.prx build-ps5/PPSA99577/sce_sys/*; do
   put "$f" "/data/homebrew/PPSA99577/${f#build-ps5/PPSA99577/}"
 done
-put samples/sword.png /data/PS5MG/sword.png
+put samples/sword.png /data/PAUL3D/sword.png
 for f in models/q4/*.gguf; do
   case $f in *_1024.gguf) continue ;; esac
-  put "$f" "/data/PS5MG/models/q4/$(basename "$f")"
+  put "$f" "/data/PAUL3D/models/q4/$(basename "$f")"
 done
-echo "/data/PS5MG/sword.png /data/PS5MG/sword.glb -m /data/PS5MG/models/q4 --res 512 -s 1234 --fa-fast --steps 8 --box-uv --no-texture -v" > /tmp/mg-args.txt
-put /tmp/mg-args.txt /data/PS5MG/args.txt
+echo "/data/PAUL3D/sword.png /data/PAUL3D/sword.glb -m /data/PAUL3D/models/q4 --res 512 -s 1234 --fa-fast --steps 8 --box-uv --no-texture -v" > /tmp/mg-args.txt
+put /tmp/mg-args.txt /data/PAUL3D/args.txt
 echo UPLOAD-DONE

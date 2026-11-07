@@ -5,7 +5,7 @@
 
 #include <string>
 
-namespace ps5mg {
+namespace paul3d {
 
 class MeshView {
 public:
@@ -24,4 +24,4 @@ private:
     float    center_[3] = {}, scale_ = 1, yaw_ = 0.6f, pitch_ = 0.25f, dist_ = 2.0f;
 };
 
-}  // namespace ps5mg
+}  // namespace paul3d
