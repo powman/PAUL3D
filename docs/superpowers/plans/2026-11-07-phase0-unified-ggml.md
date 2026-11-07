@@ -112,3 +112,10 @@ backend Vulkan da 0.27). Nenhum entra no build do PS5 nem no teste em CPU.
 **Task 3 (2026-11-07):** trellis.cpp `8e4ce11` **compila** contra o ggml único no PC (Linux, CPU), assim como contra o atual.
 A geração em CPU foi interrompida: um passo da primeira etapa levou 469 s com 7 GB de RAM ocupados por outros programas, o que
 dá várias horas por geração, vezes duas. A comparação de malha passa para o console (Task 5), que já estava no plano.
+
+**Task 5 (2026-11-07, no console do usuário):** mesma foto, seed 42, 12 passos, 300k faces, atlas 2048, box UV.
+Base antiga (job `w20261107-160342-0`, ggml pwilkin) × 0.5.0 (job `w20261107-192242-0`, ggml único):
+`compare-glb.py` → **PASS**, faces 295406 / 295406, mesma bounding box; voxels idênticos em todas as etapas (880 @res32,
+414144 @res512, remesh 982141). Tempo total **109,0 s → 103,8 s** (−5 %); flows 60,8/12,0/7,4 s → 55,5/10,8/6,6 s.
+**Fase 0 concluída.**
+

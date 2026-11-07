@@ -138,7 +138,7 @@ como servidor padrão). Cada aba mostra, antes de tudo, se o modelo que ela prec
 
 Cada fase termina com uma versão publicada que o usuário testa no console antes da próxima.
 
-0. **ggml único** — build do PS5 com o ggml novo e só o 3D. Marco: v0.5.0, foto → 3D igual à 0.4.0 (mesma seed).
+0. **ggml único** — build do PS5 com o ggml novo e só o 3D. Marco: v0.5.0, foto → 3D igual à 0.4.0 (mesma seed). **Concluída em 2026-11-07:** malha idêntica, 5 % mais rápida.
 1. **Download + Texto** — download de modelos pelo app (catálogo, licenças, sha256), modo `text`, `POST /api/text`, `/v1/chat/completions`, `cad.html` usando o PAUL3D. Marco: v0.6.0, uma peça por
    texto gerada só com o PAUL3D aberto.
 2. **Imagem** — modo `image`, `POST /api/images`, aba Texto → 3D. Marco: v0.7.0, prompt → imagem → malha sem trocar de app.
