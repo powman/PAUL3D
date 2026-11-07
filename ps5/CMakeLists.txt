@@ -34,3 +34,12 @@ target_link_libraries(trellis_core PUBLIC ggml ggml-base ggml-cpu ggml-vulkan)
 add_library(trellis_cli_main STATIC ${T}/src/trellis_cli_main.cpp)
 target_compile_definitions(trellis_cli_main PRIVATE main=trellis_cli_main)
 target_link_libraries(trellis_cli_main PRIVATE trellis_core)
+
+# The text engine: llama.cpp's src/ (scripts/llama-fetch.sh, never its own ggml) on the same ggml, and ps5/mg_text.
+if(LLAMA_SRC)
+  file(GLOB LLAMA_FILES ${LLAMA_SRC}/src/*.cpp ${LLAMA_SRC}/src/models/*.cpp)
+  file(WRITE ${CMAKE_BINARY_DIR}/gen/llama-version.h "#pragma once\n#define LLAMA_VERSION \"paul3d\"\n#define LLAMA_COMMIT \"4ed1c85\"\n")
+  add_library(paul3d_text STATIC ${LLAMA_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/mg_text.cpp)
+  target_include_directories(paul3d_text PUBLIC ${LLAMA_SRC}/include PRIVATE ${LLAMA_SRC}/src ${CMAKE_BINARY_DIR}/gen)
+  target_link_libraries(paul3d_text PUBLIC ggml ggml-base ggml-cpu ggml-vulkan)
+endif()

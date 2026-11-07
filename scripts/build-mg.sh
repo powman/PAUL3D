@@ -62,6 +62,9 @@ sedi '/setvbuf/!{s|^    FILE\* f = fopen(path, "wb");|    FILE* f = fopen(path, 
 G=$T/thirdparty/ggml
 # The one ggml of the three engines (leejet 0.27 + PS5SD's ggml patches): scripts/ggml-unified.sh, a no-op when already built.
 bash "$W/scripts/ggml-unified.sh" "$G" "$P/patches/ggml"
+# llama.cpp for the text engine (only its src/, built on the same ggml): scripts/llama-fetch.sh, a no-op when there.
+LL=$W/.deps/llama.cpp
+bash "$W/scripts/llama-fetch.sh" "$LL"
 
 # Vulkan headers and the clang shim: as in build-app.sh.
 headers=$P/.deps/ps5-vk-headers
@@ -85,7 +88,7 @@ chmod +x "$shim/clang"
 flags="-I$headers/include"
 cxxflags="$flags -fexceptions -fcxx-exceptions -frtti"
 cmake -S "$W/ps5" -B "$out/cm" -G Ninja \
-    -DTRELLIS_SRC="$T" -DCMAKE_TOOLCHAIN_FILE="$app_src/toolchain.cmake" -DCMAKE_BUILD_TYPE=Release \
+    -DTRELLIS_SRC="$T" -DLLAMA_SRC="$LL" -DCMAKE_TOOLCHAIN_FILE="$app_src/toolchain.cmake" -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$cxxflags" \
     -DBUILD_SHARED_LIBS=OFF \
     -DGGML_VULKAN=ON -DGGML_BACKEND_DL=OFF -DGGML_NATIVE=OFF -DGGML_CPU_ALL_VARIANTS=OFF \
@@ -94,7 +97,7 @@ cmake -S "$W/ps5" -B "$out/cm" -G Ninja \
     -DVulkan_INCLUDE_DIR="$headers/include" -DVulkan_LIBRARY="$archive" \
     -DVulkan_GLSLC_EXECUTABLE="$(command -v glslc)" -DSPIRV-Headers_DIR="$headers/cmake" \
     -DMATH_LIBRARY=SceLibcInternal > "$out/configure.log" 2>&1 || { tail -30 "$out/configure.log" >&2; exit 1; }
-cmake --build "$out/cm" --target trellis_core trellis_cli_main
+cmake --build "$out/cm" --target trellis_core trellis_cli_main paul3d_text
 
 # The title's own objects.
 obj=$out/obj
