@@ -12,6 +12,7 @@
 | `GET /api/jobs/<id>/image` | the input picture |
 | `POST /api/jobs/<id>/cancel` | cancel a queued job |
 | `GET /api/jobs/<id>/log` | the last lines of the job's log: `{"lines":[...]}` |
+| `GET /cad` | the page that makes a part from a sentence (LLM writes OpenSCAD, the browser compiles it; README) |
 | `GET /api/ps5sd/pictures` | the pictures in PS5SD's `/data/PS5SD/outputs` (png and jpg, newest first, at most 60): `[{"name","bytes"}]` |
 | `GET /api/ps5sd/picture/<name>` | one of those pictures |
 | `POST /api/quit` | the title ends itself after the current job |

@@ -113,6 +113,7 @@ else
 fi
 cxx "${eh[@]}" "${screen_def[@]}" -I "$headers/include" -I "$G/include" -I "$W/ps5" -c "$W/ps5/mg_main.cpp" -o "$obj/mg_main.o"
 sh "$P/scripts/embed-file.sh" "$W/ps5/index.html" mg_index_html "$out/mg_index_html.h"
+sh "$P/scripts/embed-file.sh" "$W/ps5/cad.html" mg_cad_html "$out/mg_cad_html.h"   # /cad: a part from a sentence (OpenSCAD)
 cxx -std=c++17 "${eh[@]}" -I "$G/include" -I "$W/ps5" -I "$out" -I "$T/thirdparty/cpp-httplib" -c "$W/ps5/mg_web.cpp" -o "$obj/mg_web.o"
 "$app_src/ps5cc" -O2 -c "$app_src/compat_app.c" -o "$obj/compat_app.o"
 rm -f "$obj/libps5app_compat.a"; "$sdk/bin/llvm-ar" rcs "$obj/libps5app_compat.a" "$obj/compat_app.o"

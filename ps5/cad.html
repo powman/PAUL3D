@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>PAUL3D Peça por texto</title>
+<link rel="icon" href="data:,">
+<style>
+/* Same tokens as index.html: dark first, light when the device asks for it. */
+:root{
+  --bg:#000;--grouped:#1c1c1e;--grouped2:#2c2c2e;--fill:rgba(120,120,128,.24);--fill2:rgba(120,120,128,.16);
+  --sep:rgba(84,84,88,.6);--label:#fff;--label2:rgba(235,235,245,.7);--label3:rgba(235,235,245,.4);
+  --tint:#0a84ff;--tint-ink:#fff;--ok:#30d158;--bad:#ff453a;--warn:#ff9f0a;
+  --glass:rgba(28,28,30,.62);--stage:#101014;--code:#0d0d10;
+  --r-card:20px;--r-ctl:12px;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",system-ui,Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono","DejaVu Sans Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:light){:root{
+  --bg:#f2f2f7;--grouped:#fff;--grouped2:#f2f2f7;--fill:rgba(120,120,128,.2);--fill2:rgba(120,120,128,.12);
+  --sep:rgba(60,60,67,.18);--label:#000;--label2:rgba(60,60,67,.78);--label3:rgba(60,60,67,.5);
+  --tint:#0060c9;--ok:#248a3d;--bad:#d70015;--warn:#c93400;--glass:rgba(249,249,251,.72);--stage:#e9eaef;--code:#fafafa}}
+*{box-sizing:border-box}
+html{font:100%/1.47 var(--font)}
+body{margin:0;background:var(--bg);color:var(--label);font-size:1rem;-webkit-font-smoothing:antialiased}
+h1,h2,p{margin:0}
+:focus-visible{outline:3px solid color-mix(in srgb,var(--tint) 60%,transparent);outline-offset:2px}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:.75rem;padding:.7rem 1rem;
+  background:var(--glass);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:0 .5px 0 var(--sep)}
+header h1{font-weight:600;font-size:1.0625rem}
+header .sub{color:var(--label2);font-size:.8125rem}
+header .sp{flex:1}
+header a{color:var(--tint);font-size:.875rem;text-decoration:none}
+.pill{display:inline-flex;align-items:center;gap:.4rem;font-size:.8125rem;font-weight:600;padding:.28rem .7rem;border-radius:99px;background:var(--fill2);color:var(--label2);white-space:nowrap}
+.pill i{width:.5rem;height:.5rem;border-radius:50%;background:var(--label3)}
+.pill.run{color:var(--warn)}.pill.run i{background:var(--warn);animation:pulse 1.4s ease-in-out infinite}
+.pill.ok i{background:var(--ok)}.pill.bad{color:var(--bad)}.pill.bad i{background:var(--bad)}
+@keyframes pulse{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.pill.run i{animation:none}}
+main{max-width:1280px;margin:0 auto;padding:1rem;display:grid;gap:1rem;grid-template-columns:minmax(0,1fr)}
+@media (min-width:960px){main{grid-template-columns:minmax(0,5fr) minmax(0,6fr);align-items:start}.right{position:sticky;top:4.2rem}}
+.card{background:var(--grouped);border-radius:var(--r-card);padding:1rem;display:grid;gap:.75rem}
+.card h2{font-size:.8125rem;font-weight:600;color:var(--label2);text-transform:uppercase;letter-spacing:.04em}
+textarea,input,select{font:inherit;color:var(--label);background:var(--fill2);border:0;border-radius:var(--r-ctl);padding:.6rem .75rem;width:100%}
+textarea{resize:vertical}
+#prompt{min-height:5.5rem}
+#code{font-family:var(--mono);font-size:.8125rem;line-height:1.5;min-height:16rem;background:var(--code);tab-size:2;white-space:pre;overflow:auto}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.row .sp{flex:1}
+.btn{font:inherit;font-weight:600;border:0;border-radius:var(--r-ctl);padding:.6rem 1.1rem;cursor:pointer;background:var(--tint);color:var(--tint-ink)}
+.btn.sec{background:var(--fill);color:var(--tint)}
+.btn.sm{padding:.35rem .85rem;font-size:.875rem;border-radius:99px}
+.btn:disabled{opacity:.45;cursor:default}
+.chips{display:flex;gap:.4rem;flex-wrap:wrap}
+.chips button{font:inherit;font-size:.8125rem;border:0;border-radius:99px;padding:.3rem .75rem;background:var(--fill2);color:var(--label2);cursor:pointer;text-align:left}
+details.cfg summary{cursor:pointer;color:var(--label2);font-size:.875rem}
+details.cfg[open] summary{margin-bottom:.6rem}
+.cfg label{display:grid;gap:.25rem;font-size:.8125rem;color:var(--label2);margin-bottom:.5rem}
+.hint{font-size:.8125rem;color:var(--label2)}
+.help{display:grid;gap:.6rem;margin-top:.75rem;padding:.75rem;border-radius:var(--r-ctl);background:var(--fill2);font-size:.8125rem;color:var(--label2)}
+.help b{color:var(--label)}.help ol{margin:.3rem 0 0;padding-left:1.2rem;display:grid;gap:.3rem}
+.help a{color:var(--tint)}.help code{font-family:var(--mono);font-size:.75rem;overflow-wrap:anywhere}
+.help .cmd{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.3rem;padding:.4rem .5rem;border-radius:8px;background:var(--code)}
+.help .cmd code{flex:1;min-width:12rem}
+#log{list-style:none;margin:0;padding:0;display:grid;gap:.35rem;font-size:.8125rem;color:var(--label2);max-height:12rem;overflow:auto}
+#log li.bad{color:var(--bad)}#log li.ok{color:var(--ok)}
+#log:empty{display:none}
+.stage{position:relative;background:var(--stage);border-radius:var(--r-card);overflow:hidden;aspect-ratio:4/3}
+#view{display:block;width:100%;height:100%}
+.empty[hidden]{display:none}
+.empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--label2);padding:1rem;font-size:.9375rem}
+#dims{font-variant-numeric:tabular-nums;font-size:.875rem;color:var(--label2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>PAUL3D · Peça por texto</h1><div class="sub">Uma IA escreve OpenSCAD, o navegador gera o STL</div></div>
+  <span class="sp"></span>
+  <span class="pill" id="pill" role="status"><i></i><span id="pilltxt">Pronto</span></span>
+  <a href="/" id="back" hidden>Malhas</a>
+</header>
+<main>
+<section class="left" style="display:grid;gap:1rem">
+  <div class="card">
+    <h2><label for="prompt">O que você quer imprimir?</label></h2>
+    <textarea id="prompt" placeholder="ex.: suporte de parede para controle de PS5, 3 mm de espessura, dois furos para parafuso de 4 mm"></textarea>
+    <div class="chips" id="chips" aria-label="Exemplos">
+      <button type="button">caixa 60 × 40 × 25 mm com tampa de encaixe, parede 2 mm</button>
+      <button type="button">chaveiro retangular 50 × 20 × 3 mm com furo de 5 mm e o texto "PAUL"</button>
+      <button type="button">suporte de celular inclinado 60°, largura 80 mm</button>
+      <button type="button">gancho de parede com dois furos escareados para parafuso 4 mm</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="go" type="button">Gerar peça</button>
+      <button class="btn sec" id="stop" type="button" hidden>Parar</button>
+      <span class="sp"></span>
+      <button class="btn sec sm" id="fresh" type="button" hidden>Começar do zero</button>
+    </div>
+    <p class="hint" id="mode">Descreva a peça com as medidas em mm. Depois de gerada, escreva aqui o que mudar.</p>
+    <ol id="log" aria-live="polite"></ol>
+    <details class="cfg" id="cfg">
+      <summary>Servidor da IA</summary>
+      <label>Endereço (API da OpenAI)<input id="url" type="url" spellcheck="false" placeholder="http://192.168.1.50:8081/v1"></label>
+      <label>Modelo<input id="model" list="models" spellcheck="false" placeholder="o que estiver carregado"><datalist id="models"></datalist></label>
+      <label>Chave (opcional)<input id="key" type="password" autocomplete="off"></label>
+      <div class="row"><button class="btn sec sm" id="test" type="button">Testar</button><span class="hint" id="testmsg"></span></div>
+      <p class="hint">PS5LM no console: <code>http://&lt;ip do PS5&gt;:8081/v1</code>. llama.cpp no PC: <code>http://localhost:8080/v1</code>.</p>
+      <div class="help" id="help">
+        <b>Ainda não tem a IA?</b>
+        <div><b>No PS5, com o PS5LM</b>
+          <ol>
+            <li>Instale o <a href="https://github.com/cobanov/PS5LM/releases" target="_blank" rel="noopener">PS5LM</a> (pasta <code>PPSA99575</code> em <code>/data/homebrew</code>).</li>
+            <li>Abra o PS5LM, vá em <b>Models &gt; Suggested</b> e baixe o <b>Qwen3.5 9B</b>.
+              Ou baixe no PC o <a href="https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf" target="_blank" rel="noopener">Qwen3.5-9B-Q4_K_M.gguf</a> (5,3 GB)
+              e copie por FTP para <code>/data/PS5LM/models</code>.</li>
+            <li>Carregue o modelo. Quando aparecer <b>Ready</b>, use <code>http://&lt;ip do PS5&gt;:8081/v1</code> aqui.</li>
+          </ol></div>
+        <div><b>No PC, com o llama.cpp</b>
+          <ol>
+            <li>Baixe o <a href="https://github.com/ggml-org/llama.cpp/releases" target="_blank" rel="noopener">llama.cpp</a> para o seu sistema e descompacte.</li>
+            <li>Rode no terminal (baixa o modelo sozinho na primeira vez, cerca de 4,7 GB):
+              <div class="cmd"><code id="pccmd">llama-server -hf Qwen/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M --port 8080</code><button class="btn sec sm" id="copycmd" type="button">Copiar</button></div></li>
+            <li>Use <code>http://localhost:8080/v1</code> aqui. Página aberta de outro computador: troque <code>localhost</code> pelo IP do PC e acrescente <code>--host 0.0.0.0</code> ao comando.</li>
+          </ol></div>
+      </div>
+    </details>
+  </div>
+  <div class="card">
+    <div class="row"><h2><label for="code">Código OpenSCAD</label></h2><span class="sp"></span>
+      <button class="btn sec sm" id="compile" type="button">Compilar</button>
+      <button class="btn sec sm" id="dlscad" type="button">Baixar .scad</button></div>
+    <textarea id="code" spellcheck="false" placeholder="O código aparece aqui. Você pode editar e clicar em Compilar."></textarea>
+  </div>
+</section>
+<section class="right" style="display:grid;gap:.75rem">
+  <div class="stage"><canvas id="view" aria-label="Pré-visualização da peça"></canvas><div class="empty" id="empty">A peça aparece aqui.</div></div>
+  <div class="row"><span id="dims"></span><span class="sp"></span><button class="btn" id="dlstl" type="button" disabled>Baixar STL</button></div>
+</section>
+</main>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {STLLoader} from 'three/addons/loaders/STLLoader.js';
+const $=id=>document.getElementById(id);
+
+// ---- cad logic: pure functions, tested in node (tools/test-cad). Down to the end marker.
+const SYSTEM=`You are an expert OpenSCAD designer making parts for FDM 3D printing.
+Reply with ONE complete OpenSCAD program in a single \`\`\`openscad code block, then at most two short sentences in Brazilian Portuguese.
+Rules:
+- Units are millimetres. Put every important dimension in a named variable at the top, with a short comment.
+- The part lies on the build plate: its lowest point at z=0, a large flat face down, no support needed where possible (overhangs at most 45 degrees).
+- One solid, closed body: overlap the parts you union; make every difference() cutter stick out 0.5 mm past the surfaces it cuts.
+- Walls at least 1.2 mm. Holes for screws 0.3 mm larger than the screw. Parts that fit together get 0.3 mm clearance.
+- Use $fn=64 for round shapes. text() works with the default font.
+- Plain OpenSCAD only: no include, use, import or external libraries.
+- When you get existing code and a change, return the whole updated program, keeping what was not asked to change.`;
+function extractCode(text){
+  const t=String(text||'').replace(/<think>[\s\S]*?(<\/think>|$)/g,'');
+  const blocks=[...t.matchAll(/```[ \t]*([A-Za-z]*)[^\n]*\n([\s\S]*?)(```|$)/g)];
+  const pick=blocks.filter(b=>/^(openscad|scad)$/i.test(b[1])).pop()||blocks.pop();
+  if(pick) return pick[2].trim();
+  return /;\s*$|\)\s*\{|\bcube\s*\(|\bcylinder\s*\(|\bmodule\s+\w/m.test(t)?t.trim():'';
+}
+function proseOf(text){ return String(text||'').replace(/<think>[\s\S]*?(<\/think>|$)/g,'').replace(/```[\s\S]*?(```|$)/g,'').trim(); }
+// OpenSCAD's messages that matter: errors, and warnings that leave the model broken or empty.
+function scadProblems(lines,ok){
+  const bad=lines.filter(l=>/^(ERROR|WARNING):/.test(l)&&!/Fontconfig|localization/i.test(l));
+  if(lines.some(l=>/top level object is empty/i.test(l))) bad.push('ERROR: the result is empty (no 3D object)');
+  if(!ok&&!bad.length) bad.push('ERROR: OpenSCAD failed');
+  if(lines.some(l=>/top level object is a 2D object/i.test(l))) bad.push('ERROR: the result is 2D; it must be a 3D solid (use linear_extrude)');
+  return bad;
+}
+function messagesFor(kind,{prompt,code,errors}){
+  const m=[{role:'system',content:SYSTEM}];
+  if(kind==='new') m.push({role:'user',content:prompt});
+  else if(kind==='change') m.push({role:'user',content:`Current code:\n\`\`\`openscad\n${code}\n\`\`\`\nChange: ${prompt}`});
+  else m.push({role:'user',content:`This OpenSCAD code fails:\n\`\`\`openscad\n${code}\n\`\`\`\nOpenSCAD says:\n${errors.join('\n')}\nFix it and return the whole program.`});
+  return m;
+}
+// One server-sent-events chunk of an OpenAI stream: the text deltas in it, and whether [DONE] came.
+function sseDeltas(buf){
+  const out={text:'',reasoning:'',done:false,rest:''};
+  const lines=buf.split('\n'); out.rest=lines.pop();
+  for(const l of lines){
+    const s=l.trim(); if(!s.startsWith('data:')) continue;
+    const d=s.slice(5).trim(); if(d==='[DONE]'){ out.done=true; continue; }
+    try{ const j=JSON.parse(d), c=j.choices&&j.choices[0]; const dl=c&&(c.delta||c.message)||{};
+      if(dl.content) out.text+=dl.content; if(dl.reasoning_content) out.reasoning+=dl.reasoning_content; }catch(_){}
+  }
+  return out;
+}
+function slug(s){ return (String(s||'peca').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40))||'peca'; }
+// ---- end cad logic
+
+// ---- settings, kept in this browser only
+const store={get:k=>{try{return localStorage.getItem('paul3d.cad.'+k)||''}catch(_){return ''}},set:(k,v)=>{try{localStorage.setItem('paul3d.cad.'+k,v)}catch(_){}}};
+const guessUrl=()=>location.protocol.startsWith('http')&&location.hostname?`http://${location.hostname}:8081/v1`:'';
+$('url').value=store.get('url')||guessUrl(); $('model').value=store.get('model'); $('key').value=store.get('key');
+for(const k of ['url','model','key']) $(k).addEventListener('change',()=>store.set(k,$(k).value.trim()));
+function showHelp(){ $('cfg').open=true; $('help').scrollIntoView({block:'nearest',behavior:'smooth'}); }
+$('copycmd').onclick=async()=>{ try{ await navigator.clipboard.writeText($('pccmd').textContent); $('copycmd').textContent='Copiado'; setTimeout(()=>$('copycmd').textContent='Copiar',1500); }catch(_){ getSelection().selectAllChildren($('pccmd')); } };
+if(!$('url').value) $('cfg').open=true;
+if(location.port==='7870') $('back').hidden=false;
+const base=()=>$('url').value.trim().replace(/\/+$/,'').replace(/\/chat\/completions$/,'');
+const headers=()=>{ const h={'Content-Type':'application/json'}; const k=$('key').value.trim(); if(k) h.Authorization='Bearer '+k; return h; };
+
+function pill(state,text){ $('pill').className='pill '+state; $('pilltxt').textContent=text; }
+function log(text,cls){ const li=document.createElement('li'); li.textContent=text; if(cls) li.className=cls; $('log').appendChild(li); li.scrollIntoView({block:'nearest'}); }
+
+$('test').onclick=async()=>{
+  $('testmsg').textContent='Testando...';
+  try{
+    const r=await fetch(base()+'/models',{headers:headers()}); if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json(); const ids=(j.data||[]).map(m=>m.id);
+    $('models').innerHTML=ids.map(i=>`<option value="${i.replace(/"/g,'&quot;')}">`).join('');
+    if(!$('model').value&&ids[0]){ $('model').value=ids[0]; store.set('model',ids[0]); }
+    $('testmsg').textContent=ids.length?`Conectado: ${ids.join(', ')}`:'Conectado.';
+  }catch(e){ $('testmsg').textContent='Sem resposta. Confira o endereço e se o servidor está aberto ('+e.message+'). Veja abaixo como instalar.'; showHelp(); }
+};
+
+// ---- the LLM, streamed into the code box
+let abort=null;
+async function ask(messages){
+  abort=new AbortController();
+  const body={model:$('model').value.trim()||'default',messages,stream:true,temperature:0.2,max_tokens:4096,
+    chat_template_kwargs:{enable_thinking:false}};
+  const r=await fetch(base()+'/chat/completions',{method:'POST',headers:headers(),body:JSON.stringify(body),signal:abort.signal});
+  if(!r.ok){ let m='HTTP '+r.status; try{ const j=await r.json(); m=(j.error&&(j.error.message||j.error))||m; }catch(_){} throw new Error(m); }
+  const rd=r.body.getReader(), dec=new TextDecoder(); let buf='', text='', thinking=0;
+  for(;;){
+    const {value,done}=await rd.read(); if(done) break;
+    const d=sseDeltas(buf+dec.decode(value,{stream:true})); buf=d.rest; text+=d.text; thinking+=d.reasoning.length;
+    if(d.text){ const c=extractCode(text); if(c) $('code').value=c; pill('run','Escrevendo'); }
+    else if(thinking) pill('run','Pensando');
+    if(d.done) break;
+  }
+  return text;
+}
+
+// ---- OpenSCAD in a worker (the wasm build, with a font for text())
+const OSCAD='https://cdn.jsdelivr.net/npm/openscad-wasm-prebuilt@1.2.0/dist/openscad.js';
+const FONT='https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf';
+const workerSrc=`import {createOpenSCAD} from '${OSCAD}';
+let font=null;
+onmessage=async e=>{
+  const lines=[];
+  try{
+    if(!font){ try{ font=new Uint8Array(await (await fetch('${FONT}')).arrayBuffer()); }catch(_){ font=new Uint8Array(0); } }
+    const o=await createOpenSCAD({noInitialRun:true,print:s=>lines.push(s),printErr:s=>lines.push(s)}); const m=o.getInstance();
+    if(font.length){ try{ m.FS.mkdir('/fonts'); }catch(_){}
+      m.FS.writeFile('/fonts/DejaVuSans.ttf',font);
+      m.FS.writeFile('/fonts/fonts.conf','<?xml version="1.0"?><fontconfig><dir>/fonts</dir></fontconfig>');
+      if(m.ENV) m.ENV.FONTCONFIG_FILE='/fonts/fonts.conf'; }
+    m.FS.writeFile('/in.scad',e.data);
+    let rc=1; try{ rc=m.callMain(['/in.scad','--backend=manifold','--export-format=binstl','-o','/out.stl']); }catch(err){ lines.push('ERROR: '+err); }
+    let stl=null; if(rc===0){ try{ stl=m.FS.readFile('/out.stl'); }catch(_){} }
+    postMessage({ok:!!(stl&&stl.length),stl,lines},stl?[stl.buffer]:[]);
+  }catch(err){ postMessage({ok:false,stl:null,lines:[...lines,'ERROR: '+err]}); }
+};`;
+let worker=null;
+function compileScad(code){
+  return new Promise(res=>{
+    try{ if(!worker){ worker=new Worker(URL.createObjectURL(new Blob([workerSrc],{type:'text/javascript'})),{type:'module'}); } }
+    catch(e){ res({ok:false,stl:null,lines:['ERROR: o navegador não abriu o compilador ('+e.message+')']}); return; }
+    worker.onmessage=e=>res(e.data);
+    worker.onerror=e=>{ worker=null; res({ok:false,stl:null,lines:['ERROR: o compilador falhou ao carregar ('+(e.message||'sem internet?')+')']}); };
+    worker.postMessage(code);
+  });
+}
+
+// ---- viewer: z-up, the plate at z=0
+let renderer,scene,camera,controls,mesh=null,stlBytes=null;
+function initView(){
+  renderer=new THREE.WebGLRenderer({canvas:$('view'),antialias:true,alpha:true}); renderer.setClearColor(0,0);
+  scene=new THREE.Scene(); camera=new THREE.PerspectiveCamera(40,1,0.1,5000); camera.up.set(0,0,1);
+  controls=new OrbitControls(camera,renderer.domElement); controls.enableDamping=true;
+  scene.add(new THREE.HemisphereLight(0xffffff,0x445066,1.5)); const d=new THREE.DirectionalLight(0xffffff,2); d.position.set(1,-2,3); scene.add(d);
+  const size=()=>{ const c=$('view'); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(c.clientWidth,c.clientHeight,false); camera.aspect=c.clientWidth/Math.max(c.clientHeight,1); camera.updateProjectionMatrix(); };
+  new ResizeObserver(size).observe($('view')); size();
+  const loop=()=>{ requestAnimationFrame(loop); controls.update(); renderer.render(scene,camera); }; loop();
+}
+function show(bytes){
+  if(!renderer) initView();
+  const g=new STLLoader().parse(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)); g.computeVertexNormals(); g.computeBoundingBox();
+  if(mesh){ scene.remove(mesh); mesh.geometry.dispose(); scene.remove(scene.getObjectByName('plate')); }
+  mesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x9fb4d9,roughness:.55,metalness:.05})); scene.add(mesh);
+  const b=g.boundingBox, s=b.getSize(new THREE.Vector3()), c=b.getCenter(new THREE.Vector3()), r=Math.max(s.x,s.y,s.z,1);
+  const grid=new THREE.GridHelper(Math.ceil(r*1.6/10)*10,Math.ceil(r*1.6/10),0x6a7180,0x3a3f48); grid.rotation.x=Math.PI/2; grid.position.set(c.x,c.y,0); grid.name='plate'; scene.add(grid);
+  if(!stlBytes){ controls.target.copy(c); camera.position.set(c.x-r*0.5,c.y-r*1.6,c.z+r*1.2); }
+  stlBytes=bytes; $('empty').hidden=true; $('dlstl').disabled=false;
+  const f=x=>(Math.round(x*10)/10).toLocaleString('pt-BR');
+  $('dims').textContent=`${f(s.x)} × ${f(s.y)} × ${f(s.z)} mm`+(b.min.z<-0.01?' · abaixo da mesa: a IA deve corrigir':'');
+}
+
+// ---- the loop: ask, compile, send the errors back (at most 3 fixes)
+let busy=false;
+function setBusy(on){ busy=on; $('go').disabled=on; $('compile').disabled=on; $('stop').hidden=!on; $('code').readOnly=on; if(!on) abort=null; }
+function syncMode(){ const has=!!$('code').value.trim(); $('go').textContent=has?'Aplicar mudança':'Gerar peça'; $('fresh').hidden=!has; }
+async function compileShown(){
+  pill('run','Compilando');
+  const r=await compileScad($('code').value);
+  const problems=scadProblems(r.lines,r.ok);
+  if(r.ok&&!problems.length){ show(r.stl); return []; }
+  return problems.length?problems:['ERROR: OpenSCAD failed'];
+}
+async function run(kind){
+  const prompt=$('prompt').value.trim();
+  if(!base()){ $('cfg').open=true; $('url').focus(); log('Coloque o endereço do servidor da IA.','bad'); return; }
+  if(!prompt){ $('prompt').focus(); return; }
+  setBusy(true);
+  try{
+    let code=$('code').value;
+    log(kind==='new'?'Pedindo a peça à IA...':'Pedindo a mudança à IA...');
+    let text=await ask(messagesFor(kind,{prompt,code}));
+    for(let attempt=0;;attempt++){
+      code=extractCode(text);
+      if(!code){ log('A IA não devolveu código OpenSCAD. Tente descrever de outro jeito.','bad'); pill('bad','Sem código'); return; }
+      $('code').value=code; syncMode();
+      const problems=await compileShown();
+      if(!problems.length){ const p=proseOf(text); log('Peça pronta.'+(p?' '+p.slice(0,240):''),'ok'); pill('ok','Pronto'); $('prompt').value=''; return; }
+      log(`Erro no OpenSCAD: ${problems[0].replace(/^ERROR:\s*/,'')}`,'bad');
+      if(attempt>=3){ log('Três correções não bastaram. Edite o código ou descreva a peça de forma mais simples.','bad'); pill('bad','Erro'); return; }
+      log(`Pedindo correção (${attempt+1}/3)...`);
+      text=await ask(messagesFor('fix',{code,errors:problems}));
+    }
+  }catch(e){
+    if(e.name==='AbortError'){ log('Parado.'); pill('','Pronto'); }
+    else{ log('Falha ao falar com a IA: '+e.message+'. Confira o endereço em Servidor da IA, ou veja lá como instalar.','bad'); pill('bad','Sem conexão'); showHelp(); }
+  }finally{ setBusy(false); syncMode(); }
+}
+$('go').onclick=()=>run($('code').value.trim()?'change':'new');
+$('stop').onclick=()=>{ if(abort) abort.abort(); };
+$('fresh').onclick=()=>{ $('code').value=''; $('log').innerHTML=''; syncMode(); $('prompt').focus(); };
+$('prompt').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)&&!busy){ e.preventDefault(); $('go').click(); } });
+$('chips').onclick=e=>{ const b=e.target.closest('button'); if(b){ $('prompt').value=b.textContent; $('prompt').focus(); } };
+$('code').addEventListener('input',syncMode);
+$('compile').onclick=async()=>{ if(busy||!$('code').value.trim()) return; setBusy(true);
+  try{ const p=await compileShown(); if(p.length){ log('Erro no OpenSCAD: '+p.join(' · ').replace(/ERROR:\s*/g,''),'bad'); pill('bad','Erro'); } else { log('Compilado.','ok'); pill('ok','Pronto'); } }
+  finally{ setBusy(false); } };
+function save(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); }
+let lastName='peca';
+$('prompt').addEventListener('change',()=>{ if(!$('code').value.trim()) lastName=slug($('prompt').value); });
+$('dlstl').onclick=()=>{ if(stlBytes) save(new Blob([stlBytes],{type:'model/stl'}),lastName+'.stl'); };
+$('dlscad').onclick=()=>{ if($('code').value.trim()) save(new Blob([$('code').value],{type:'text/plain'}),lastName+'.scad'); };
+syncMode();
+</script>
+</body>
+</html>

@@ -1,3 +1,17 @@
+## PAUL3D 0.4.0
+
+### Novo
+- **Peça por texto** (`http://<console>:7870/cad`, ou o arquivo `ps5/cad.html` aberto no PC): descreva uma peça funcional com
+  medidas ("caixa 60 × 40 × 25 mm com tampa, parede 2 mm") e uma IA escreve o código OpenSCAD; o navegador gera o STL e mostra a
+  peça. Erros do OpenSCAD voltam para a IA corrigir (até 3 vezes); depois é só escrever o que mudar. O código fica editável.
+- A IA é qualquer servidor com a API da OpenAI: o PS5LM no console (`http://<console>:8081/v1`) ou o llama.cpp no PC.
+  Sem servidor, a página mostra como instalar, com os links do modelo (Qwen3.5 9B / Qwen2.5-Coder 7B).
+- Botão "Peça por texto" no topo da página e o logo do PAUL3D no lugar do antigo.
+
+### Observação
+- O PS5LM e o PAUL3D não rodam juntos no console: com o PS5LM aberto, use `ps5/cad.html` pelo PC.
+- O navegador precisa de internet uma vez para o three.js, o OpenSCAD (11 MB) e uma fonte.
+
 ## PAUL3D 0.3.0
 
 PAUL3D é uma versão modificada do [PS5MG](https://github.com/nikay99/PS5MG) de nikay99 (GPL-3.0), voltada para impressão 3D.

@@ -5,6 +5,7 @@
 set -u
 mkdir -p /tmp/g /data/PAUL3D/{jobs,in,out,logs}
 printf 'static const unsigned char mg_index_html[]={0}; static const unsigned long mg_index_html_len=1;\n' > /tmp/g/mg_index_html.h
+printf 'static const unsigned char mg_cad_html[]={0}; static const unsigned long mg_cad_html_len=1;\n' > /tmp/g/mg_cad_html.h
 clang++ -std=c++17 -O1 -I /src/ps5 -I /tmp/g -I /src/src/trellis.cpp/thirdparty/cpp-httplib /src/tools/test-web/main.cpp /src/ps5/mg_web.cpp -o /tmp/web -lpthread || exit 1
 /tmp/web > /tmp/web.log 2>&1 &
 sleep 1

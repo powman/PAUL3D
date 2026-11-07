@@ -164,6 +164,19 @@ The page has three presets. This is one picture (the gargoyle) made with each, s
 In the close-up, Fast shows blocky patches in the texture around the nose and mouth; Detailed has a crisper texture and cleaner
 edges. More steps change the shape a little as well, they do not only sharpen it. A Detailed GLB is bigger (18 MB here, 7 MB for the others).
 
+## A part from a sentence (OpenSCAD)
+
+For functional parts (boxes, brackets, hooks, key rings, spare parts) a 3D mesh from a picture is the wrong tool: you want exact
+measurements. **Peça por texto** (`http://<console>:7870/cad`, or open `ps5/cad.html` from a PC) asks a language model for an
+[OpenSCAD](https://openscad.org) program, compiles it in the browser (OpenSCAD as WebAssembly) and shows the part, ready as STL.
+
+- The model: any server with the OpenAI API. [PS5LM](https://github.com/cobanov/PS5LM) on the console (`http://<console>:8081/v1`,
+  Qwen 3.5 9B or larger) or llama.cpp's `llama-server` on a PC (`http://localhost:8080/v1`). Set it under **Servidor da IA**.
+- When OpenSCAD reports an error, the page sends it back to the model, up to three times. The code stays editable.
+- Then write what to change ("furos 1 mm maiores"): the model gets the current code and the change.
+- PS5LM and PAUL3D run one at a time on the console, so with PS5LM open use `ps5/cad.html` from the PC.
+- The browser needs internet once for three.js, OpenSCAD (11 MB) and a font, from jsDelivr.
+
 ## Use it from a script
 
 Everything the page does is an HTTP call, so scripts, a phone shortcut or a batch loop can make meshes too. The page's **API** button
