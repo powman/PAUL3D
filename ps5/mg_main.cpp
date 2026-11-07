@@ -28,10 +28,14 @@
 
 #include "ggml-alloc.h"
 #include "ggml-backend.h"
+#include "mg_download.hpp"
+#include "mg_fetch.hpp"
+#include "mg_models_txt.h"  // ps5/models.txt (scripts/build-mg.sh)
 #include "mg_queue.hpp"
 #include "mg_state.hpp"
 #include "mg_text.hpp"
 #include "mg_textjob.hpp"
+#include "nlohmann/json.hpp"
 #include "paul3d_threads.h"
 
 // No Vulkan loader on the console: the four entry points ggml-vulkan links against go to RADV.
@@ -444,6 +448,73 @@ void run_text_job(mg::TextEngine & eng, const std::string & name) {
     g_mg.job.clear(); g_mg.stage = "texto: pronto"; g_mg.progress.clear();
 }
 
+// ---- downloads: a .dljob names a group of ps5/models.txt; its files come from Hugging Face (mg_download, mg_fetch).
+// The state goes to downloads/<id>.json for the web page; downloads/<id>.cancel stops it. No restart afterwards.
+void save_download(nlohmann::json & st) {
+    mkdir(kMgDownloads, 0777);
+    const std::string p = std::string(kMgDownloads) + "/" + st.value("id", "x") + ".json";
+    { std::ofstream f(p + ".tmp"); f << st.dump(); }
+    rename((p + ".tmp").c_str(), p.c_str());
+}
+
+void run_download(const std::string & name) {
+    const std::string id = name.substr(0, name.size() - 6), base = std::string(kJobs) + "/" + id;
+    rename((base + ".dljob").c_str(), (base + ".dlrunning").c_str());
+    const std::string cancel = std::string(kMgDownloads) + "/" + id + ".cancel";
+    auto req = nlohmann::json::parse(slurp_file(base + ".dlrunning"), nullptr, false);
+    auto st  = nlohmann::json::parse(slurp_file(std::string(kMgDownloads) + "/" + id + ".json"), nullptr, false);
+    if (!st.is_object()) st = {{"id", id}};
+    const std::string group = req.is_object() ? req.value("group", "") : "";
+    std::string err;
+    const auto cat = mg::parse_catalog(std::string(reinterpret_cast<const char *>(mg_models_txt), mg_models_txt_len), err);
+    std::vector<mg::ModelFile> files;
+    int64_t total = 0, base_done = 0;
+    for (const auto & f : cat) if (f.group == group) { files.push_back(f); total += f.size; }
+    st["group"] = group; st["total"] = total; st["state"] = "downloading"; st["error"] = nullptr;
+    std::printf("paul3d: DOWNLOAD %s START %s (%zu files, %.2f GB)\n", id.c_str(), group.c_str(), files.size(), total / 1e9);
+    bool ok = !files.empty();
+    if (!ok) err = "grupo desconhecido: " + group;
+    const double t0 = mg_now();
+    for (const auto & f : files) {
+        if (!ok) break;
+        st["file"] = f.path;
+        double last = 0, last_t = mg_now();
+        int64_t last_done = 0;
+        auto progress = [&](int64_t done, int64_t size) {
+            if (mg_now() - last > 0.5) {
+                struct stat cs;
+                if (stat(cancel.c_str(), &cs) == 0) return false;
+                const double now = mg_now();
+                st["done"]  = base_done + done;
+                st["speed"] = now > last_t ? (double) (done - last_done) / (now - last_t) : 0.0;
+                st["state"] = done >= size ? "verifying" : "downloading";
+                last_done = done; last_t = now; last = now;
+                save_download(st);
+                std::lock_guard<std::mutex> lk(g_mg.mu);
+                g_mg.stage = "download " + group + " " + std::to_string((int) (100.0 * (base_done + done) / std::max<int64_t>(total, 1))) + "%";
+            }
+            return true;
+        };
+        {
+            std::lock_guard<std::mutex> lk(g_mg.mu);
+            g_mg.job = id; g_mg.job_t0 = t0;
+        }
+        ok = mg::download_file(f, kDir, mg::hf_url(f), mg::console_fetch(), mg::free_bytes(kDir), progress, err);
+        if (ok) base_done += f.size;
+    }
+    st["done"] = base_done;
+    st["speed"] = 0;
+    st["state"] = ok ? "done" : (err == "cancelado" ? "cancelled" : "failed");
+    if (!ok) st["error"] = err;
+    st.erase("file");
+    save_download(st);
+    unlink((base + ".dlrunning").c_str());
+    unlink(cancel.c_str());
+    std::printf("paul3d: DOWNLOAD %s %s in %.0f s%s%s\n", id.c_str(), st.value("state", "").c_str(), mg_now() - t0, ok ? "" : ": ", ok ? "" : err.c_str());
+    std::lock_guard<std::mutex> lk(g_mg.mu);
+    g_mg.job.clear(); g_mg.stage = "idle"; g_mg.progress.clear();
+}
+
 // The text mode: the model is loaded once and answers the text requests one after the other, until another kind of
 // job comes or nothing comes for a while (mg::text_mode_decision). True: the title should start over (memory used).
 bool text_mode() {
@@ -505,6 +576,14 @@ void * run(void *) {
         while (dirent * e = readdir(d)) {
             const std::string n = e->d_name;
             if (n.size() > 8 && n.compare(n.size() - 8, 8, ".running") == 0) left.push_back(n.substr(0, n.size() - 8));
+            if (n.size() > 10 && n.compare(n.size() - 10, 10, ".dlrunning") == 0) {
+                const std::string id = n.substr(0, n.size() - 10);
+                auto st = nlohmann::json::parse(slurp_file(std::string(kMgDownloads) + "/" + id + ".json"), nullptr, false);
+                if (!st.is_object()) st = {{"id", id}};
+                st["state"] = "failed"; st["error"] = "interrompido quando o app fechou; peça de novo para continuar de onde parou";
+                save_download(st);
+                unlink((std::string(kJobs) + "/" + n).c_str());
+            }
             if (n.size() > 12 && n.compare(n.size() - 12, 12, ".textrunning") == 0) {
                 mg::write_text_done(kMgText, n.substr(0, n.size() - 12), "failed", "the title ended while answering");
                 unlink((std::string(kJobs) + "/" + n).c_str());
@@ -529,9 +608,8 @@ void * run(void *) {
             g_restart = stat(kQuit, &st) != 0;
             break;
         }
-        if (kind == mg::JobKind::download) {  // downloads come with the model catalogue (phase 1, task 7)
-            const std::string b = std::string(kJobs) + "/" + job.substr(0, job.size() - 6);
-            rename((b + ".dljob").c_str(), (b + ".dlfailed").c_str());
+        if (kind == mg::JobKind::download) {  // no restart after a download: no model was loaded
+            run_download(job);
             continue;
         }
         const std::string path = std::string(kJobs) + "/" + job;

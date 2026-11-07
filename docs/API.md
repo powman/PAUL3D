@@ -12,6 +12,10 @@
 | `GET /api/jobs/<id>/image` | the input picture |
 | `POST /api/jobs/<id>/cancel` | cancel a queued job |
 | `GET /api/jobs/<id>/log` | the last lines of the job's log: `{"lines":[...]}` |
+| `GET /api/catalog` | the models the title can download itself (`ps5/models.txt`): `{"groups":[{"group","title","size","have","installed","licence","needed_for":"3d"\|"text"}],"free"}` |
+| `POST /api/downloads` | JSON `{"group","accept_license":true}` → `202 {"id"}`; `400` without `accept_license`, `404` unknown group, `409` installed or already queued. Only Hugging Face, the pinned file, checked by sha256; an interrupted download continues from where it stopped |
+| `GET /api/downloads` | the downloads, newest first: `state` (`queued`, `downloading`, `verifying`, `done`, `failed`, `cancelled`), `done`, `total`, `speed` (bytes/s), `error` |
+| `POST /api/downloads/<id>/cancel` | stops it (the part already downloaded stays for next time) |
 | `POST /api/text` | JSON `{"messages":[{"role","content"}...],"max_tokens"?,"temperature"?}` → `202 {"id"}`. The worker's text mode answers it with the console's language model (`/data/PAUL3D/models/text/*.gguf`, else PS5LM's `/data/PS5LM/models`). `409 {"error":"missing_model"}` without one, `400` for a bad request |
 | `GET /api/text/<id>` | `{"id","status":"queued"\|"loading"\|"generating"\|"done"\|"failed","text","error"?}`; `text` grows while it is made |
 | `GET /v1/models`, `POST /v1/chat/completions` | OpenAI's API on top of the same queue, for other programs; the answer comes when it is done (with `"stream":true` as one event) |

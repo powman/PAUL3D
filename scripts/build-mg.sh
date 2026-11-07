@@ -110,15 +110,25 @@ else
     kitinc=()
     screen_def=()
 fi
-cxx "${eh[@]}" "${screen_def[@]}" -I "$headers/include" -I "$G/include" -I "$W/ps5" -c "$W/ps5/mg_main.cpp" -o "$obj/mg_main.o"
+# Model downloads (mg_download, mg_fetch): PS5SD's HTTPS client over mbedTLS with the Mozilla CA list, its URL parsing
+# (download_core.cpp, with llama.cpp's nlohmann json), and the catalogue ps5/models.txt built in.
+bash "$P/scripts/build-mbedtls.sh"
+mbedtls=$P/.deps/mbedtls-ps5
+app=$P/ps5/app
+sh "$P/scripts/embed-file.sh" "$app/cacert.pem" ps5sd_cacert_pem "$out/cacert_pem.h"
+sh "$P/scripts/embed-file.sh" "$W/ps5/models.txt" mg_models_txt "$out/mg_models_txt.h"
+cxx -std=c++17 "${eh[@]}" -I "$app" -I "$LL/vendor/nlohmann" -c "$app/download_core.cpp" -o "$obj/download_core.o"
+cxx -std=c++17 "${eh[@]}" -I "$app" -I "$mbedtls/include" -I "$out" -c "$app/https_client.cpp" -o "$obj/https_client.o"
+cxx -std=c++17 "${eh[@]}" -I "$app" -I "$W/ps5" -c "$W/ps5/mg_fetch.cpp" -o "$obj/mg_fetch.o"
+cxx "${eh[@]}" "${screen_def[@]}" -I "$headers/include" -I "$G/include" -I "$W/ps5" -I "$out" -I "$LL/vendor" -c "$W/ps5/mg_main.cpp" -o "$obj/mg_main.o"
 sh "$P/scripts/embed-file.sh" "$W/ps5/index.html" mg_index_html "$out/mg_index_html.h"
 sh "$P/scripts/embed-file.sh" "$W/ps5/cad.html" mg_cad_html "$out/mg_cad_html.h"   # /cad: a part from a sentence (OpenSCAD)
-cxx -std=c++17 "${eh[@]}" -I "$G/include" -I "$W/ps5" -I "$out" -I "$T/thirdparty/cpp-httplib" -c "$W/ps5/mg_web.cpp" -o "$obj/mg_web.o"
+cxx -std=c++17 "${eh[@]}" -I "$G/include" -I "$W/ps5" -I "$out" -I "$LL/vendor" -I "$T/thirdparty/cpp-httplib" -c "$W/ps5/mg_web.cpp" -o "$obj/mg_web.o"
 "$app_src/ps5cc" -O2 -c "$app_src/compat_app.c" -o "$obj/compat_app.o"
 rm -f "$obj/libps5app_compat.a"; "$sdk/bin/llvm-ar" rcs "$obj/libps5app_compat.a" "$obj/compat_app.o"
 cxx -fno-exceptions -fno-rtti -c "$vk/tooling/native/app_crt.cpp" -o "$obj/app_crt.o"
 cxx -fexceptions -fcxx-exceptions -c "$app_src/cpp_runtime.cpp" -o "$obj/app_cpp_runtime.o"
-app_objects=("$obj/app_crt.o" "$obj/app_cpp_runtime.o" "$obj/mg_main.o" "$obj/mg_web.o")
+app_objects=("$obj/app_crt.o" "$obj/app_cpp_runtime.o" "$obj/mg_main.o" "$obj/mg_web.o" "$obj/download_core.o" "$obj/https_client.o" "$obj/mg_fetch.o")
 
 # ---- the screen (display builds only): as in build-app.sh ----------------------------------------
 gl=
@@ -199,6 +209,9 @@ done
 [ $display = 1 ] && link_flags+=(--wrap=sceAgcInit)
 mapfile -t libs < <(find "$out/cm" -name '*.a' | sort)
 local_archives=("${libs[@]}" "$obj/libps5app_compat.a")
+for l in mbedtls mbedx509 mbedcrypto everest p256m; do  # mbedTLS for the downloads, as PS5SD links it
+    [ -f "$mbedtls/lib/lib$l.a" ] && local_archives+=("$mbedtls/lib/lib$l.a")
+done
 [ $display = 1 ] && local_archives+=("$obj/libpaul3d_kit.a" "$out/gl/libpaul3d_gl.a")
 sdk_stubs=("$sdk"/target/lib/*.so)
 

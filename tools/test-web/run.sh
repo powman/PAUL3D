@@ -6,10 +6,13 @@ set -u
 mkdir -p /tmp/g /data/PAUL3D/{jobs,in,out,logs}
 printf 'static const unsigned char mg_index_html[]={0}; static const unsigned long mg_index_html_len=1;\n' > /tmp/g/mg_index_html.h
 printf 'static const unsigned char mg_cad_html[]={0}; static const unsigned long mg_cad_html_len=1;\n' > /tmp/g/mg_cad_html.h
+# the model catalogue, embedded as scripts/build-mg.sh does it (bytes and a length)
+{ printf 'static const unsigned char mg_models_txt[]={'; od -An -v -tu1 /src/ps5/models.txt | tr -s ' \n' ',' | sed 's/^,//;s/,$//'
+  printf '};\nstatic const unsigned long mg_models_txt_len=%s;\n' "$(wc -c < /src/ps5/models.txt)"; } > /tmp/g/mg_models_txt.h
 # The compiler and the header folders can be set: CXX, HTTPLIB_DIR (trellis.cpp's thirdparty/cpp-httplib) and JSON_DIR
 # (llama.cpp's vendor/, for nlohmann/json), e.g. in an alpine container: apk add g++ curl bash; CXX=g++ ...
 ${CXX:-clang++} -std=c++17 -O1 -I /src/ps5 -I /tmp/g -I "${HTTPLIB_DIR:-/src/src/trellis.cpp/thirdparty/cpp-httplib}" \
-  -I "${JSON_DIR:-/src/.deps/llama.cpp/vendor}" /src/tools/test-web/main.cpp /src/ps5/mg_web.cpp /src/ps5/mg_textjob.cpp \
+  -I "${JSON_DIR:-/src/.deps/llama.cpp/vendor}" /src/tools/test-web/main.cpp /src/ps5/mg_web.cpp /src/ps5/mg_textjob.cpp /src/ps5/mg_download.cpp \
   -o /tmp/web -lpthread || exit 1
 /tmp/web > /tmp/web.log 2>&1 &
 sleep 1
@@ -147,6 +150,33 @@ t "chat completions: needs the key"          401 "$(code -H "$J" -d "$ASK" $U/v1
 t "v1/models: needs the key"                 401 "$(code $U/v1/models)"
 t "chat completions: Bearer key works"       1   "$(curl -s -H 'Authorization: Bearer secret123' $U/v1/models | grep -c q.gguf)"
 rm -f /data/PAUL3D/api-key.txt /data/PAUL3D/jobs/*
+
+# ---- downloads: GET /api/catalog, POST /api/downloads, GET /api/downloads, cancel (the worker is not running here)
+rm -rf /data/PAUL3D/models /data/PAUL3D/downloads; rm -f /data/PAUL3D/jobs/*
+C=$(curl -s $U/api/catalog)
+t "catalog: two groups"                      2   "$(grep -o '"group":"[a-z0-9-]*"' <<<"$C" | wc -l)"
+t "catalog: nothing installed"               0   "$(grep -o '"installed":true' <<<"$C" | wc -l)"
+t "catalog: the text group and its size"     1   "$(grep -o '{[^{}]*"group":"text-qwen35-9b"[^{}]*}' <<<"$C" | grep -c '"size":5680522464')"
+t "catalog: the text group says what for"    1   "$(grep -o '{[^{}]*"group":"text-qwen35-9b"[^{}]*}' <<<"$C" | grep -c '"needed_for":"text"')"
+t "catalog: a licence link"                  1   "$(grep -o '{[^{}]*"group":"text-qwen35-9b"[^{}]*}' <<<"$C" | grep -c '"licence":"https://huggingface.co/unsloth/Qwen3.5-9B-GGUF"')"
+t "catalog: free space is given"             1   "$(grep -c '"free":[0-9]' <<<"$C")"
+t "download: without accept_license is 400"  400 "$(code -H "$J" -d '{"group":"text-qwen35-9b"}' $U/api/downloads)"
+t "download: unknown group is 404"           404 "$(code -H "$J" -d '{"group":"nope","accept_license":true}' $U/api/downloads)"
+DID=$(curl -s -H "$J" -d '{"group":"text-qwen35-9b","accept_license":true}' $U/api/downloads | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+t "download: accepted with an id"            1   "$([ -n "$DID" ] && echo 1 || echo 0)"
+t "download: the job file is there"          1   "$(grep -c '"group":"text-qwen35-9b"' /data/PAUL3D/jobs/$DID.dljob 2>/dev/null)"
+t "download: the same group again is 409"    409 "$(code -H "$J" -d '{"group":"text-qwen35-9b","accept_license":true}' $U/api/downloads)"
+t "downloads: listed as queued"              1   "$(curl -s $U/api/downloads | grep -c "\"id\":\"$DID\".*\"state\":\"queued\"")"
+t "downloads: cancel"                        200 "$(code -X POST $U/api/downloads/$DID/cancel)"
+t "downloads: cancelled, job file gone"      1   "$(curl -s $U/api/downloads | grep -c '"state":"cancelled"')$([ -f /data/PAUL3D/jobs/$DID.dljob ] && echo x)"
+t "downloads: cancel of an unknown id 404"   404 "$(code -X POST $U/api/downloads/d19990101-000000-0/cancel)"
+mkdir -p /data/PAUL3D/models/text; truncate -s 5680522464 /data/PAUL3D/models/text/Qwen3.5-9B-Q4_K_M.gguf
+t "catalog: a file in full is installed"     1   "$(curl -s $U/api/catalog | grep -o '{[^{}]*"group":"text-qwen35-9b"[^{}]*}' | grep -c '"installed":true')"
+t "download: an installed group is 409"      409 "$(code -H "$J" -d '{"group":"text-qwen35-9b","accept_license":true}' $U/api/downloads)"
+printf 'secret123\n' > /data/PAUL3D/api-key.txt
+t "catalog: needs the key"                   401 "$(code $U/api/catalog)"
+t "downloads: needs the key"                 401 "$(code $U/api/downloads)"
+rm -f /data/PAUL3D/api-key.txt /data/PAUL3D/jobs/*; rm -rf /data/PAUL3D/models/text
 
 kill %1 2>/dev/null
 [ $fail = 0 ] && echo "ALL PASSED" || echo "SOME FAILED"
