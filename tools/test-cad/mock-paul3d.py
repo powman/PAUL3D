@@ -1,13 +1,12 @@
-"""A PAUL3D stand-in for checking ps5/index.html (Modelos) and ps5/cad.html (Peça por texto) in a browser, on port 7870.
+"""A PAUL3D stand-in for checking ps5/cad.html (the page: a part from a sentence, Modelos) in a browser, on port 7870.
 No text model at first; a download of a group takes about 6 s (progress, cancel); once the text group is installed,
 /api/text answers with a key-ring OpenSCAD program, first partly, then whole.
-  python3 tools/test-cad/mock-paul3d.py      then open http://127.0.0.1:7870/ and http://127.0.0.1:7870/cad"""
+  python3 tools/test-cad/mock-paul3d.py      then open http://127.0.0.1:7870/"""
 import http.server, json, os, threading, time
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "ps5")
-GROUPS = {"mesh-q4": ("Modelos 3D (TRELLIS.2, q4)", 6105943648, "3d", "https://huggingface.co/ilintar/trellis2-gguf"),
-          "text-qwen35-9b": ("IA de texto (Qwen3.5 9B)", 5680522464, "text", "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF")}
-installed = {"mesh-q4": True, "text-qwen35-9b": False}
+GROUPS = {"text-qwen35-9b": ("IA de texto (Qwen3.5 9B)", 5680522464, "text", "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF")}
+installed = {"text-qwen35-9b": False}
 downloads, texts = {}, {}
 ANSWER = ("```openscad\n// chaveiro\nl=50; w=20; h=3;\ndifference(){\n  cube([l,w,h]);\n  translate([6,w/2,-0.5]) cylinder(d=5,h=h+1,$fn=64);\n}\n"
           "translate([13,5,h-0.01]) linear_extrude(1) text(\"PAUL\",size=9);\n```\nChaveiro com furo de 5 mm.")
@@ -36,12 +35,8 @@ class H(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         p = self.path.split("?")[0]
-        if p in ("/", "/index.html"): return self.send(200, open(os.path.join(ROOT, "index.html"), "rb").read(), "text/html")
-        if p == "/cad": return self.send(200, open(os.path.join(ROOT, "cad.html"), "rb").read(), "text/html")
-        if p == "/api/status": return self.send(200, {"busy": False, "stage": "", "progress": "", "pool_free_gib": 10.8, "pool_gib": 11.4, "threads": 11, "tail": []})
-        if p == "/api/jobs": return self.send(200, [])
-        if p == "/api/models": return self.send(200, [{"dir": "q4", "res1024": True, "pixal3d": False}])
-        if p == "/api/weights": return self.send(200, {"files": [], "complete": True})
+        if p in ("/", "/cad"): return self.send(200, open(os.path.join(ROOT, "cad.html"), "rb").read(), "text/html")
+        if p == "/api/status": return self.send(200, {"busy": False, "stage": "pronto: Qwen3.8-27B-UD-Q2_K_XL.gguf", "progress": "", "pool_free_gib": 1.2, "pool_gib": 11.4, "threads": 11, "tail": []})
         if p == "/api/auth": return self.send(200, {"required": False, "ok": True})
         if p == "/api/catalog":
             with lock:

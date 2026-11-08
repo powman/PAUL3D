@@ -3,8 +3,8 @@
 import fs from 'fs'; import assert from 'assert/strict';
 const html = fs.readFileSync(new URL('../../ps5/cad.html', import.meta.url), 'utf8');
 const code = html.slice(html.indexOf('// ---- cad logic'), html.indexOf('// ---- end cad logic'));
-const {extractCode, proseOf, scadProblems, messagesFor, sseDeltas, slug, paul3dAsk} =
-  new Function(code + ';return {extractCode, proseOf, scadProblems, messagesFor, sseDeltas, slug, paul3dAsk};')();
+const {extractCode, proseOf, scadProblems, messagesFor, slug, paul3dAsk} =
+  new Function(code + ';return {extractCode, proseOf, scadProblems, messagesFor, slug, paul3dAsk};')();
 const t = (name, f) => { f(); console.log('ok  ', name); };
 
 t('code block tagged openscad', () => assert.equal(extractCode('Aqui:\n```openscad\ncube(10);\n```\nPronto.'), 'cube(10);'));
@@ -22,12 +22,6 @@ t('font noise is not a problem', () => assert.deepEqual(scadProblems(['Fontconfi
 t('unknown module warning counts', () => assert.equal(scadProblems(["WARNING: Ignoring unknown module 'roundedBox'"], true).length, 1));
 t('fix message carries code and errors', () => { const m = messagesFor('fix', {code: 'cube(', errors: ['ERROR: x']}); assert.equal(m.length, 2); assert.match(m[1].content, /cube\(/); assert.match(m[1].content, /ERROR: x/); });
 t('change message carries current code', () => assert.match(messagesFor('change', {prompt: 'mais alto', code: 'cube(1);'})[1].content, /cube\(1\);[\s\S]*mais alto/));
-t('stream deltas, split line kept', () => {
-  const a = sseDeltas('data: {"choices":[{"delta":{"content":"cu"}}]}\n\ndata: {"choices":[{"delta":{"content":"be"}}]}\ndata: {"choi');
-  assert.equal(a.text, 'cube'); assert.equal(a.rest, 'data: {"choi'); assert.equal(a.done, false);
-  const b = sseDeltas(a.rest + 'ces":[{"delta":{"reasoning_content":"hm"}}]}\ndata: [DONE]\n');
-  assert.equal(b.reasoning, 'hm'); assert.equal(b.done, true);
-});
 t('file name from prompt', () => assert.equal(slug('Caixa 60 × 40 com Tampa!'), 'caixa-60-40-com-tampa'));
 
 // ---- paul3dAsk: the console's own text engine (POST /api/text, then GET /api/text/<id>)
@@ -94,4 +88,8 @@ await ta('paul3dAsk: the chosen model goes in the request', async () => {
   assert.equal(sent.model, 'Qwen3.8-27B-UD-Q2_K_XL.gguf');
   await paul3dAsk([{role: 'user', content: 'x'}], {fetchFn, sleep: noSleep});
   assert.equal('model' in sent, false);
+});
+await ta('paul3dAsk: a console with a key answers LOCKED', async () => {
+  const srv = fakeServer({post: json(401, {error: 'key required'}), get: []});
+  await assert.rejects(paul3dAsk([], {fetchFn: srv.fetchFn, sleep: noSleep}), /LOCKED/);
 });

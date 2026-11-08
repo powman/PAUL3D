@@ -17,11 +17,6 @@ MSYS_NO_PATHCONV=1 docker run --rm --platform linux/amd64 -v "$PWD:/src:ro" ps5s
 Build the `ps5sd-build` image first (step B in docs/BUILDING.md). `tools/test-deform` and `tools/test-decimate` check the
 speedups against the original code; each has a `run.sh` that says how to run it.
 
-## Share a mesh
-
-Open a ["Show your mesh"](https://github.com/powman/PAUL3D/issues/new?template=show-your-mesh.yml) issue with the picture,
-the settings and the time it took. Questions and ideas can go to [Discussions](https://github.com/powman/PAUL3D/discussions).
-
 ## Code style
 
 Match the code around your change. Keep changes small and say why in the pull request.

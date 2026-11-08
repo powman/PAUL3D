@@ -22,9 +22,7 @@ int main(int argc, char ** argv) {
 
     std::string err;
     auto cat = mg::parse_catalog(slurp(root + "/ps5/models.txt"), err);
-    t("catalog: 11 files", cat.size() == 11, err);
-    int q4 = 0, text = 0; for (auto & f : cat) { q4 += f.group == "mesh-q4"; text += f.group == "text-qwen35-9b"; }
-    t("catalog: 10 mesh-q4 + 1 text", q4 == 10 && text == 1);
+    t("catalog: the text model only", cat.size() == 1 && cat[0].group == "text-qwen35-9b", err);
     t("catalog: the Qwen line", !cat.empty() && cat.back().sha256 == "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8" &&
       cat.back().size == 5680522464LL && cat.back().dest == "models/text/Qwen3.5-9B-Q4_K_M.gguf");
     t("catalog: hf_url", !cat.empty() && mg::hf_url(cat.back()) ==

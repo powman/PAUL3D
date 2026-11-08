@@ -1,7 +1,5 @@
 #include "mg_queue.hpp"
 
-#include <algorithm>
-
 namespace mg {
 
 static bool ends_with(const std::string & s, const std::string & tail) {
@@ -11,7 +9,6 @@ static bool ends_with(const std::string & s, const std::string & tail) {
 JobKind kind_of(const std::string & n) {
     if (ends_with(n, ".textjob")) return JobKind::text;
     if (ends_with(n, ".dljob")) return JobKind::download;
-    if (ends_with(n, ".job")) return JobKind::mesh;
     return JobKind::unknown;
 }
 
@@ -23,10 +20,10 @@ std::string next_job(const std::vector<std::string> & names) {
     return best;
 }
 
-Leave text_mode_decision(JobKind next, double idle_s) {
-    if (next == JobKind::text) return Leave::stay;
-    if (next == JobKind::mesh || next == JobKind::download) return Leave::restart;
-    return idle_s >= kTextIdleSeconds ? Leave::restart : Leave::stay;
+Next text_mode_next(JobKind next, bool other_model) {
+    if (next == JobKind::text) return other_model ? Next::restart : Next::answer;
+    if (next == JobKind::download) return Next::download;
+    return Next::wait;
 }
 
 }  // namespace mg

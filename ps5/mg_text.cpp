@@ -25,7 +25,7 @@ bool TextEngine::load(const std::string & gguf, int n_ctx, int n_threads, std::s
     if (!model_) { err = "cannot load " + gguf; return false; }
     llama_context_params cp = llama_context_default_params();
     cp.n_ctx           = (uint32_t) n_ctx;
-    cp.n_batch         = (uint32_t) std::min(n_ctx, 2048);
+    cp.n_batch         = (uint32_t) std::min(n_ctx, 512);   // small compute buffers: room for a 27B model
     cp.n_threads       = n_threads;
     cp.n_threads_batch = n_threads;
     ctx_ = llama_init_from_model(model_, cp);

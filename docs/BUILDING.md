@@ -1,9 +1,10 @@
 # Building PAUL3D
 
-PAUL3D is a PS5 title (`ps5/`): [trellis.cpp](https://github.com/pwilkin/trellis.cpp) with ggml-vulkan on
-[PS5_Vulkan](https://github.com/mihawk-99/PS5_Vulkan)'s RADV build. The toolchain, the dependency setup and the
-screen's UI kit come from the PS5SD submodule (`third_party/PS5SD`), the build recipe from PS5SD and PS5LM (GPL-3.0).
-The toolchain runs on x86-64 Linux only, so build in GitHub Actions or in Docker.
+PAUL3D is a PS5 title (`ps5/`): [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `src/` on ggml with its Vulkan backend on
+[PS5_Vulkan](https://github.com/mihawk-99/PS5_Vulkan)'s RADV build (the ggml: `scripts/ggml-unified.sh`; llama.cpp:
+`scripts/llama-fetch.sh`, both pinned). The toolchain, the dependency setup and the screen's UI kit come from the PS5SD
+submodule (`third_party/PS5SD`), the build recipe from PS5SD and PS5LM (GPL-3.0). The toolchain runs on x86-64 Linux only, so
+build in GitHub Actions or in Docker.
 
 ## A. GitHub Actions (nothing to install)
 
@@ -28,12 +29,11 @@ docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work ps5sd-build bash
 ```
 
 The title folder ends up in `build/title/PPSA99577`. `MG_DISPLAY=0` builds without the screen.
-`scripts/build-mg.sh` clones trellis.cpp and pwilkin's ggml at pinned commits into `.deps/` and applies the changes
-listed in the README (patch scripts, `ps5/*.cpp`).
+`scripts/build-mg.sh` puts the pinned ggml and llama.cpp into `.deps/`.
 
 ## Install on the console
 
 1. Copy `PPSA99577/` to `/data/homebrew/PPSA99577` (FTP 2121 of a jailbroken console), rescan in ShadowMountPlus.
-2. Weights to `/data/PAUL3D/models/q4` (`tools/get-weights.sh` on a PC, then `tools/put-weights.sh`; set `PS5_HOST`).
+2. A text model: the page's Modelos panel downloads it, or copy a `.gguf` to `/data/PAUL3D/models/text`.
 3. Start the title: ShadowMountPlus' icon, or `tools/mg.sh launch` (elfldr 9021, `build/tools/launch-mg.elf`).
 4. Open `http://<console>:7870`.

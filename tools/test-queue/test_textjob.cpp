@@ -46,6 +46,13 @@ int main() {
         t("other model: the loaded one", !mg::needs_other_model(want, (m / "own" / "b.gguf").string(), dirs));
         want.model = "";
         t("other model: no name keeps the loaded one", !mg::needs_other_model(want, (m / "ps5lm" / "a.gguf").string(), dirs));
+        // the model the title loads when it starts: the last one asked for, while it is installed
+        const std::string pref = (m / "text-model.txt").string();
+        t("preferred: none written, the default", mg::preferred_text_model(dirs, pref) == mg::find_text_model(dirs));
+        mg::remember_text_model(pref, "b.gguf");
+        t("preferred: the remembered one", mg::preferred_text_model(dirs, pref) == (m / "own" / "b.gguf").string());
+        mg::remember_text_model(pref, "gone.gguf");
+        t("preferred: a removed one falls back", mg::preferred_text_model(dirs, pref) == mg::find_text_model(dirs));
         fs::remove_all(m);
     }
 

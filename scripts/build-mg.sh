@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Builds PAUL3D (trellis.cpp as a PS5 title) in the ps5sd-build container (docker/ of the PS5SD submodule),
+# Builds PAUL3D (a language model writing OpenSCAD, as a PS5 title) in the ps5sd-build container (docker/ of PS5SD),
 # with the repository mounted at /work, after scripts/setup-deps.sh (see docs/BUILDING.md). Recipe: PS5SD's
 # scripts/build-app.sh (adapted from PS5LM, GPL-3.0).
-#   .deps/trellis.cpp       trellis.cpp @ 8e4ce11 + the unified ggml (scripts/ggml-unified.sh: leejet 0.27 + PS5SD's patches/ggml)
+#   .deps/ggml              the unified ggml (scripts/ggml-unified.sh: leejet 0.27 + PS5SD's patches/ggml)
+#   .deps/llama.cpp         llama.cpp's src/ for the text engine (scripts/llama-fetch.sh)
 #   ps5/                    this repository's title (CMakeLists.txt, mg_main.cpp, mg_web.cpp, screen/); sce_sys/ at the root
 #   third_party/PS5SD       the PS5SD submodule: toolchain wrappers, deps (.deps), the screen's UI kit
 #
@@ -37,30 +38,8 @@ sedi() {
         if cmp -s "$t" "$f"; then rm -f "$t"; else cat "$t" > "$f"; rm -f "$t"; fi
     done
 }
-T=$W/.deps/trellis.cpp
-if [ ! -d "$T/.git" ]; then
-    git clone -q https://github.com/pwilkin/trellis.cpp "$T"
-    git -C "$T" checkout -q 8e4ce11a77d35c3e3a4b3f84a29d92bf5491e64e
-fi
-# Worker pools by the CPUs the title may use, not by hardware_concurrency() (ps5/paul3d_threads.h).
-sedi 's/std::thread::hardware_concurrency()/paul3d_threads()/g' "$T"/src/*.cpp
-# The PLY next to every GLB doubles the file writes (14 s on the console): off unless wanted.
-sedi '/TRELLIS_KEEP_PLY/!s/^    trellis::write_ply(ply.c_str()/    if (!std::getenv("TRELLIS_KEEP_PLY")) {} else trellis::write_ply(ply.c_str()/' "$T/src/trellis_cli.cpp"
-# Pixal3D meshes come out of the decoder y-up already (TRELLIS ones z-up); write_glb turns every mesh from z-up to
-# y-up, which left Pixal3D's lying on their back. mg_main.cpp sets PAUL3D_YUP_NATIVE for a --model pixal3d job.
-sedi '/PAUL3D_YUP_NATIVE/!{s/float p\[3\] = { ox, oz, -oy };/float p[3] = { ox, oz, -oy }; if (std::getenv("PAUL3D_YUP_NATIVE")) { p[1] = oy; p[2] = oz; }/; s/float p\[3\]={ox,oz,-oy};/float p[3]={ox,oz,-oy}; if (std::getenv("PAUL3D_YUP_NATIVE")) { p[1] = oy; p[2] = oz; }/}' "$T/src/mesh_glb.cpp"
-# BiRefNet's bilinear upscale: parallel, channel by channel (ps5/birefnet_interp.inc).
-python3 "$W/ps5/patch-trellis-io.py" "$T/src/trellis_model.cpp"
-python3 "$W/ps5/patch-notex-faces.py" "$T/src/trellis_cli.cpp"
-python3 "$W/ps5/patch-birefnet.py" "$T/src/birefnet.cpp" "$W/ps5/birefnet_interp.inc"
-# A picture of the back (or other sides) next to the main one: trellis-cli --view (ps5/patch-multiview.py).
-python3 "$W/ps5/patch-multiview.py" "$T"
-# Big stdio buffers for the weights and the GLB: the console's libc reads and writes a file in buffer-sized pieces
-# (a few KB by default), which held the weight loading to about 90 MB/s.
-sedi '/setvbuf/!s|^    FILE\* f = fopen(path.c_str(), "rb");|    FILE* f = fopen(path.c_str(), "rb"); if (f) setvbuf(f, nullptr, _IOFBF, 16 << 20);|' "$T/src/trellis_model.cpp"
-sedi '/setvbuf/!{s|^    FILE\* f = fopen(path, "wb");|    FILE* f = fopen(path, "wb"); if (f) setvbuf(f, nullptr, _IOFBF, 8 << 20);|; s|FILE\* f=fopen(path,"wb"); if(!f) return false;|FILE* f=fopen(path,"wb"); if(!f) return false; setvbuf(f, nullptr, _IOFBF, 8 << 20);|}' "$T/src/mesh_glb.cpp"
-G=$T/thirdparty/ggml
-# The one ggml of the three engines (leejet 0.27 + PS5SD's ggml patches): scripts/ggml-unified.sh, a no-op when already built.
+G=$W/.deps/ggml
+# The unified ggml (leejet 0.27 + PS5SD's ggml patches): scripts/ggml-unified.sh, a no-op when already built.
 bash "$W/scripts/ggml-unified.sh" "$G" "$P/patches/ggml"
 # llama.cpp for the text engine (only its src/, built on the same ggml): scripts/llama-fetch.sh, a no-op when there.
 LL=$W/.deps/llama.cpp
@@ -88,7 +67,7 @@ chmod +x "$shim/clang"
 flags="-I$headers/include"
 cxxflags="$flags -fexceptions -fcxx-exceptions -frtti"
 cmake -S "$W/ps5" -B "$out/cm" -G Ninja \
-    -DTRELLIS_SRC="$T" -DLLAMA_SRC="$LL" -DCMAKE_TOOLCHAIN_FILE="$app_src/toolchain.cmake" -DCMAKE_BUILD_TYPE=Release \
+    -DGGML_SRC="$G" -DLLAMA_SRC="$LL" -DCMAKE_TOOLCHAIN_FILE="$app_src/toolchain.cmake" -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$cxxflags" \
     -DBUILD_SHARED_LIBS=OFF \
     -DGGML_VULKAN=ON -DGGML_BACKEND_DL=OFF -DGGML_NATIVE=OFF -DGGML_CPU_ALL_VARIANTS=OFF \
@@ -97,7 +76,7 @@ cmake -S "$W/ps5" -B "$out/cm" -G Ninja \
     -DVulkan_INCLUDE_DIR="$headers/include" -DVulkan_LIBRARY="$archive" \
     -DVulkan_GLSLC_EXECUTABLE="$(command -v glslc)" -DSPIRV-Headers_DIR="$headers/cmake" \
     -DMATH_LIBRARY=SceLibcInternal > "$out/configure.log" 2>&1 || { tail -30 "$out/configure.log" >&2; exit 1; }
-cmake --build "$out/cm" --target trellis_core trellis_cli_main paul3d_text
+cmake --build "$out/cm" --target paul3d_text
 
 # The title's own objects.
 obj=$out/obj
@@ -121,9 +100,8 @@ cxx -std=c++17 "${eh[@]}" -I "$app" -I "$LL/vendor/nlohmann" -c "$app/download_c
 cxx -std=c++17 "${eh[@]}" -I "$app" -I "$mbedtls/include" -I "$out" -c "$app/https_client.cpp" -o "$obj/https_client.o"
 cxx -std=c++17 "${eh[@]}" -I "$app" -I "$W/ps5" -c "$W/ps5/mg_fetch.cpp" -o "$obj/mg_fetch.o"
 cxx "${eh[@]}" "${screen_def[@]}" -I "$headers/include" -I "$G/include" -I "$W/ps5" -I "$out" -I "$LL/vendor" -c "$W/ps5/mg_main.cpp" -o "$obj/mg_main.o"
-sh "$P/scripts/embed-file.sh" "$W/ps5/index.html" mg_index_html "$out/mg_index_html.h"
-sh "$P/scripts/embed-file.sh" "$W/ps5/cad.html" mg_cad_html "$out/mg_cad_html.h"   # /cad: a part from a sentence (OpenSCAD)
-cxx -std=c++17 "${eh[@]}" -I "$G/include" -I "$W/ps5" -I "$out" -I "$LL/vendor" -I "$T/thirdparty/cpp-httplib" -c "$W/ps5/mg_web.cpp" -o "$obj/mg_web.o"
+sh "$P/scripts/embed-file.sh" "$W/ps5/cad.html" mg_cad_html "$out/mg_cad_html.h"   # the page: a part from a sentence (OpenSCAD)
+cxx -std=c++17 "${eh[@]}" -I "$G/include" -I "$W/ps5" -I "$out" -I "$LL/vendor" -I "$W/ps5/third_party/cpp-httplib" -c "$W/ps5/mg_web.cpp" -o "$obj/mg_web.o"
 "$app_src/ps5cc" -O2 -c "$app_src/compat_app.c" -o "$obj/compat_app.o"
 rm -f "$obj/libps5app_compat.a"; "$sdk/bin/llvm-ar" rcs "$obj/libps5app_compat.a" "$obj/compat_app.o"
 cxx -fno-exceptions -fno-rtti -c "$vk/tooling/native/app_crt.cpp" -o "$obj/app_crt.o"
@@ -134,12 +112,12 @@ app_objects=("$obj/app_crt.o" "$obj/app_cpp_runtime.o" "$obj/mg_main.o" "$obj/mg
 gl=
 if [ $display = 1 ]; then
     scr=$W/ps5/screen
-    for src in display dashboard qrcodegen app_status glb_read mesh_view; do
+    for src in display dashboard qrcodegen app_status; do
         cxx "${eh[@]}" "${kitinc[@]}" -I "$scr" -c "$scr/$src.cpp" -o "$obj/$src.o"
     done
-    cxx "${eh[@]}" -I "$T/thirdparty/stb" -I "$scr" -c "$scr/image_file.cpp" -o "$obj/image_file.o"
+    cxx "${eh[@]}" -I "$LL/vendor/stb" -I "$scr" -c "$scr/image_file.cpp" -o "$obj/image_file.o"
     cxx "${eh[@]}" "${kitinc[@]}" -I "$scr" -I "$W/ps5" -c "$W/ps5/mg_screen.cpp" -o "$obj/mg_screen.o"
-    app_objects+=("$obj/display.o" "$obj/dashboard.o" "$obj/qrcodegen.o" "$obj/app_status.o" "$obj/glb_read.o" "$obj/mesh_view.o" "$obj/image_file.o" "$obj/mg_screen.o")
+    app_objects+=("$obj/display.o" "$obj/dashboard.o" "$obj/qrcodegen.o" "$obj/app_status.o" "$obj/image_file.o" "$obj/mg_screen.o")
 
     # ps5-opengl is a Mesa of its own and shares thousands of symbol names with RADV's: linked into one object
     # with only the GL and EGL API left global, the two never meet.
@@ -239,21 +217,21 @@ if [ $display = 1 ]; then
     cp "$kit/assets/fonts/"{inter-regular,inter-semibold,montserrat-medium,dejavu-sans-mono}.huifont \
         "$kit/assets/fonts/"{Inter,Montserrat,DejaVu}-LICENSE.txt "$app/assets/fonts/"
 fi
-# Licences and the source offer (GPL-3.0 title; trellis.cpp and ggml are MIT).
+# Licences and the source offer (GPL-3.0 title; llama.cpp, ggml and cpp-httplib are MIT).
 mkdir -p "$app/licenses"
 cp "$W/LICENSE" "$app/licenses/PAUL3D-GPL-3.0.txt"
-cp "$T/LICENSE" "$app/licenses/trellis.cpp-MIT.txt"
-cp "$T/thirdparty/ggml/LICENSE" "$app/licenses/ggml-MIT.txt"
+cp "$LL/LICENSE" "$app/licenses/llama.cpp-MIT.txt"
+cp "$G/LICENSE" "$app/licenses/ggml-MIT.txt"
 cp "$W/THIRD_PARTY_NOTICES.md" "$app/licenses/THIRD_PARTY_NOTICES.md"
 cp "$kit/THIRD_PARTY_NOTICES.md" "$app/licenses/ps5-homebrew-ui-THIRD_PARTY_NOTICES.md"
-for d in "$T"/thirdparty/*/; do   # the licence files that ship with trellis.cpp's bundled sources (some keep theirs in the headers)
+for d in "$LL"/vendor/*/; do   # the licence files that ship with llama.cpp's vendored sources (some keep theirs in the headers)
     for f in "$d"LICENSE*; do [ -f "$f" ] && cp "$f" "$app/licenses/$(basename "$d")-$(basename "$f")"; done
 done
 rev=$(git -C "$W" rev-parse HEAD 2> /dev/null || echo unknown)
 cat > "$app/SOURCE.txt" <<EOT
 PAUL3D (title PPSA99577), built from https://github.com/powman/PAUL3D at commit $rev
-trellis.cpp 8e4ce11a77d35c3e3a4b3f84a29d92bf5491e64e + ggml f8697b33795db2ee6a2569b40853ca6aaa69f9b9 (see scripts/build-mg.sh)
-No model weights are included: see the README (Licences) and tools/get-weights.sh.
+llama.cpp 4ed1c8507e78c5dddc8e48d2822b87c2099e00d1 + ggml leejet dc998771 with PS5SD's patches (see scripts/build-mg.sh)
+No model weights are included: the page's Modelos panel downloads them (ps5/models.txt).
 EOT
 "$tool" self --inspect --file "$app/eboot.bin" > /dev/null
 echo "build-mg: $app ($(stat -c %s "$app/eboot.bin") bytes, $([ $display = 1 ] && echo with || echo without) a screen)"

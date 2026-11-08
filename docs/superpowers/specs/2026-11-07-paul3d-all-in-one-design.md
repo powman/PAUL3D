@@ -1,5 +1,8 @@
 # PAUL3D tudo num só: texto, imagem e 3D dentro do mesmo app
 
+> **Substituído em 2026-11-08.** O usuário escolheu deixar no PAUL3D só a geração de peças por texto (0.7.0): o motor 3D
+> (TRELLIS.2) saiu, e as fases 2 e 3 (imagem → 3D) não serão feitas. As fases 0 e 1 continuam valendo.
+
 Data: 2026-11-07. Estado: rascunho para aprovação. D1 decidida pelo usuário: download pelo próprio app.
 
 ## Intenção

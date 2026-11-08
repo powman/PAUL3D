@@ -1,3 +1,21 @@
+## PAUL3D 0.7.0
+
+### O PAUL3D agora é só "peça por texto"
+- Saiu tudo do 3D por foto: o motor TRELLIS.2, a foto de trás, o visualizador de malhas na TV e os modelos 3D (6 GB que você
+  pode apagar de `/data/PAUL3D/models/q4` pelo FTP). O app ficou bem menor.
+- A página que abre em `http://<console>:7870` é a geração de peças por texto, com o painel Modelos embaixo.
+- Saiu a opção de usar outro servidor de IA (PS5LM ou PC): a IA é sempre a do console.
+
+### Desempenho
+- **O modelo é carregado quando o app abre e fica na memória.** Só o primeiro pedido depois de abrir espera a carga
+  (Qwen3.8 27B: uns 2 minutos); os seguintes começam na hora. Antes, o app descarregava o modelo depois de 5 minutos parado.
+- O app lembra o último modelo usado e carrega esse ao abrir.
+- **Menos memória por pedido:** contexto de 4096 tokens e lote de 512 (antes 8192 e 2048). Com o 27B ocupando 9,8 GB, isso
+  deixa folga na GPU; numa versão anterior o app reiniciou sozinho por falta de memória.
+
+### Atenção
+- Ainda não foi testado no console: me diga como o 27B se comporta em vários pedidos seguidos.
+
 ## PAUL3D 0.6.1
 
 ### Novo

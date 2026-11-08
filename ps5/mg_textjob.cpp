@@ -102,6 +102,18 @@ bool needs_other_model(const TextJob & job, const std::string & loaded, const st
     return !want.empty() && want != loaded;
 }
 
+std::string preferred_text_model(const std::vector<std::string> & dirs, const std::string & file) {
+    std::string name = slurp(file);
+    while (!name.empty() && (name.back() == '\n' || name.back() == ' ')) name.pop_back();
+    const std::string p = name.empty() ? "" : resolve_text_model(dirs, name);
+    return p.empty() ? find_text_model(dirs) : p;
+}
+
+void remember_text_model(const std::string & file, const std::string & name) {
+    { std::ofstream f(file + ".tmp"); f << name << "\n"; }
+    std::rename((file + ".tmp").c_str(), file.c_str());
+}
+
 std::string text_status(const std::string & jobs, const std::string & dir, const std::string & id) {
     json j = {{"id", id}};
     const std::string txt = dir + "/" + id + ".txt", done = dir + "/" + id + ".textdone";

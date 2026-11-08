@@ -39,6 +39,11 @@ std::string resolve_text_model(const std::vector<std::string> & dirs, const std:
 // The worker's text mode has `loaded` in memory: does this request ask for another model (the title must start over)?
 bool needs_other_model(const TextJob & job, const std::string & loaded, const std::vector<std::string> & dirs);
 
+// The model the title loads when it starts: the one last asked for (a file name in `file`), while it is installed;
+// the default otherwise.
+std::string preferred_text_model(const std::vector<std::string> & dirs, const std::string & file);
+void remember_text_model(const std::string & file, const std::string & name);
+
 // {"id","status":"queued"|"loading"|"generating"|"done"|"failed","text","error"?}; "" when the id is unknown.
 std::string text_status(const std::string & jobs_dir, const std::string & text_dir, const std::string & id);
 

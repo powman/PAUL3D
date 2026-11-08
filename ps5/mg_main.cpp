@@ -1,7 +1,8 @@
-// PAUL3D spike: runs trellis.cpp's CLI as a headless PS5 title. Startup patterns are PS5SD's
-// (ps5/app/main.cpp, adapted from PS5LM, GPL-3.0): Vulkan forwarders, log to a file, quit file.
+// PAUL3D: a part from a sentence. A language model (llama.cpp on ggml-vulkan, mg_text) writes OpenSCAD for the web page,
+// which compiles it. Startup patterns are PS5SD's (ps5/app/main.cpp, adapted from PS5LM, GPL-3.0): Vulkan forwarders,
+// log to a file, quit file.
 //
-// /data/PAUL3D/jobs/<name>.job  one line, the trellis-cli arguments; run in name order, then renamed .done or .failed
+// /data/PAUL3D/jobs/<id>.textjob  a text request (mg_textjob.hpp); <id>.dljob a model download (mg_download.hpp)
 // /data/PAUL3D/app.log    everything the run prints
 // /data/PAUL3D/quit       create it and the title exits itself
 #include <dirent.h>
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <memory>
 #include <mutex>
 #include <cstdio>
 #include <cstdlib>
@@ -65,7 +67,6 @@ int64_t   sceKernelGetDirectMemorySize(void);
 int       sceKernelAvailableDirectMemorySize(int64_t start, int64_t end, size_t align, int64_t * at, size_t * size);
 }
 
-int trellis_cli_main(int argc, char ** argv);
 #ifdef MG_SCREEN
 bool mg_screen_open();
 void mg_screen_frame();
@@ -207,199 +208,6 @@ void log_memory(const char * when) {
 
 // "bench-read <file> <block bytes>": how fast the console reads a file (first read of it, so not from cache), with
 // read() and blocks of that size, for at most 8 seconds.
-int bench_read(const std::string & line) {
-    std::istringstream words(line);
-    std::string        cmd, path;
-    size_t             block = 1 << 20;
-    words >> cmd >> path >> block;
-    const int fd = open(path.c_str(), O_RDONLY);
-    if (fd < 0) {
-        std::printf("paul3d: bench-read: cannot open %s\n", path.c_str());
-        return 2;
-    }
-    std::vector<char> buf(block);
-    size_t            total = 0;
-    const double      t0 = mg_now();
-    for (;;) {
-        const ssize_t n = read(fd, buf.data(), block);
-        if (n <= 0) break;
-        total += static_cast<size_t>(n);
-        if (mg_now() - t0 > 8.0) break;
-    }
-    close(fd);
-    const double secs = mg_now() - t0;
-    std::printf("paul3d: bench-read %s block %zu: %.0f MB in %.2f s = %.0f MB/s\n", path.c_str(), block, total / 1e6, secs,
-                total / 1e6 / std::max(secs, 1e-9));
-    return 0;
-}
-
-// "bench-fread <file> <block bytes> <stdio buffer MiB>": like bench-read, but through stdio (what the weights loading
-// uses), with a buffer of that size; first read of the file, at most 8 seconds.
-int bench_fread(const std::string & line) {
-    std::istringstream words(line);
-    std::string        cmd, path;
-    size_t             block = 1 << 20, bufmib = 0;
-    words >> cmd >> path >> block >> bufmib;
-    FILE * f = fopen(path.c_str(), "rb");
-    if (!f) {
-        std::printf("paul3d: bench-fread: cannot open %s\n", path.c_str());
-        return 2;
-    }
-    if (bufmib > 0) setvbuf(f, nullptr, _IOFBF, bufmib << 20);
-    std::vector<char> buf(block);
-    size_t            total = 0, n;
-    const double      t0 = mg_now();
-    while ((n = fread(buf.data(), 1, block, f)) > 0) {
-        total += n;
-        if (mg_now() - t0 > 8.0) break;
-    }
-    fclose(f);
-    const double secs = mg_now() - t0;
-    std::printf("paul3d: bench-fread %s block %zu stdio buffer %zu MiB: %.0f MB in %.2f s = %.0f MB/s\n", path.c_str(), block, bufmib,
-                total / 1e6, secs, total / 1e6 / std::max(secs, 1e-9));
-    return 0;
-}
-
-// "bench-malloc <MiB>": how fast fresh memory is handed out and touched (page faults), three rounds; and a single
-// thread's integer loop, so a slow CPU and slow memory can be told apart.
-int bench_malloc(const std::string & line) {
-    std::istringstream words(line);
-    std::string        cmd;
-    size_t             mib = 512;
-    words >> cmd >> mib;
-    for (int round = 0; round < 3; round++) {
-        const double t0 = mg_now();
-        char *       p  = static_cast<char *>(malloc(mib << 20));
-        if (!p) {
-            std::printf("paul3d: bench-malloc: cannot allocate %zu MiB\n", mib);
-            return 2;
-        }
-        const double t1 = mg_now();
-        for (size_t i = 0; i < (mib << 20); i += 4096) reinterpret_cast<volatile char *>(p)[i] = static_cast<char>(i);  // one touch per page
-        const double t2 = mg_now();
-        free(p);
-        std::printf("paul3d: bench-malloc %zu MiB: malloc %.3f s, first touch %.3f s = %.0f MB/s\n", mib, t1 - t0, t2 - t1,
-                    (mib << 20) / 1e6 / std::max(t2 - t1, 1e-9));
-    }
-    volatile uint64_t x = 1;
-    const double t0 = mg_now();
-    for (uint64_t i = 0; i < 400000000ull; i++) x = x * 6364136223846793005ull + 1442695040888963407ull;
-    std::printf("paul3d: bench-malloc cpu loop (4e8 steps): %.2f s\n", mg_now() - t0);
-    return 0;
-}
-
-// "bench-upload <MiB> <chunk MiB>": host memory to a Vulkan buffer through ggml_backend_tensor_set, against a plain
-// memcpy to host memory (what the weights loading does per tensor).
-int bench_upload(const std::string & line) {
-    std::istringstream words(line);
-    std::string        cmd;
-    size_t             mib = 256, chunk_mib = 16;
-    words >> cmd >> mib >> chunk_mib;
-    const size_t bytes = mib << 20, chunk = chunk_mib << 20;
-    ggml_backend_t backend = nullptr;
-    for (size_t i = 0; i < ggml_backend_dev_count() && !backend; i++) {
-        ggml_backend_dev_t dev = ggml_backend_dev_get(i);
-        if (ggml_backend_dev_type(dev) != GGML_BACKEND_DEVICE_TYPE_CPU) backend = ggml_backend_dev_init(dev, nullptr);  // an iGPU, here
-    }
-    if (!backend) {
-        std::printf("paul3d: bench-upload: no GPU backend\n");
-        return 2;
-    }
-    ggml_init_params ip = {ggml_tensor_overhead() * 4, nullptr, true};
-    ggml_context *   ctx = ggml_init(ip);
-    ggml_tensor *    t   = ggml_new_tensor_1d(ctx, GGML_TYPE_I8, static_cast<int64_t>(bytes));
-    const double ta = mg_now();
-    ggml_backend_buffer_t buf = ggml_backend_alloc_ctx_tensors(ctx, backend);
-    if (!buf) {
-        std::printf("paul3d: bench-upload: cannot allocate %zu MiB\n", mib);
-        return 2;
-    }
-    std::printf("paul3d: bench-upload: allocating %zu MiB took %.2f s\n", mib, mg_now() - ta);
-    // The first write of fresh pages and the second differ: the first time the kernel hands out the memory.
-    std::vector<char> host(chunk, 1), host2(chunk);
-    double t0 = mg_now();
-    for (int pass = 0; pass < 2; pass++) {
-        const double tp = mg_now();
-        for (size_t off = 0; off < bytes; off += chunk) ggml_backend_tensor_set(t, host.data(), off, std::min(chunk, bytes - off));
-        std::printf("paul3d: bench-upload pass %d: %.2f s = %.0f MB/s\n", pass, mg_now() - tp, bytes / 1e6 / std::max(mg_now() - tp, 1e-9));
-    }
-    t0 = mg_now();
-    for (size_t off = 0; off < bytes; off += chunk) ggml_backend_tensor_set(t, host.data(), off, std::min(chunk, bytes - off));
-    const double up = mg_now() - t0;
-    t0 = mg_now();
-    for (size_t off = 0; off < bytes; off += chunk) memcpy(host2.data(), host.data(), std::min(chunk, bytes - off));
-    const double cp = mg_now() - t0;
-    std::printf("paul3d: bench-upload %zu MiB in %zu MiB chunks: tensor_set %.2f s = %.0f MB/s; host memcpy %.2f s = %.0f MB/s\n", mib,
-                chunk_mib, up, bytes / 1e6 / std::max(up, 1e-9), cp, bytes / 1e6 / std::max(cp, 1e-9));
-    ggml_backend_buffer_free(buf);
-    ggml_free(ctx);
-    ggml_backend_free(backend);
-    return 0;
-}
-
-// One job: the trellis-cli arguments, one line in a .job file.
-int run_job(const std::string & name, const std::string & line) {
-    if (line.rfind("bench-fread ", 0) == 0) {
-        std::printf("paul3d: JOB %s START: %s\n", name.c_str(), line.c_str());
-        const int rc = bench_fread(line);
-        std::printf("paul3d: JOB %s DONE rc=%d\n", name.c_str(), rc);
-        std::ofstream(std::string(kJobs) + "/" + name + ".result") << rc << " 0\n";
-        return rc;
-    }
-    if (line.rfind("bench-malloc ", 0) == 0) {
-        std::printf("paul3d: JOB %s START: %s\n", name.c_str(), line.c_str());
-        const int rc = bench_malloc(line);
-        std::printf("paul3d: JOB %s DONE rc=%d\n", name.c_str(), rc);
-        std::ofstream(std::string(kJobs) + "/" + name + ".result") << rc << " 0\n";
-        return rc;
-    }
-    if (line.rfind("bench-upload ", 0) == 0) {
-        std::printf("paul3d: JOB %s START: %s\n", name.c_str(), line.c_str());
-        const int rc = bench_upload(line);
-        std::printf("paul3d: JOB %s DONE rc=%d\n", name.c_str(), rc);
-        std::ofstream(std::string(kJobs) + "/" + name + ".result") << rc << " 0\n";
-        return rc;
-    }
-    if (line.rfind("bench-read ", 0) == 0) {
-        std::printf("paul3d: JOB %s START: %s\n", name.c_str(), line.c_str());
-        const int rc = bench_read(line);
-        std::printf("paul3d: JOB %s DONE rc=%d\n", name.c_str(), rc);
-        std::ofstream(std::string(kJobs) + "/" + name + ".result") << rc << " 0\n";
-        return rc;
-    }
-    std::istringstream words(line);
-    std::vector<std::string> args{"trellis-cli"};
-    for (std::string w; words >> w;) args.push_back(w);
-    std::vector<char *> argv;
-    for (auto & a : args) argv.push_back(a.data());
-    argv.push_back(nullptr);
-    std::printf("paul3d: JOB %s START: %s\n", name.c_str(), line.c_str());
-    // Pixal3D's mesh is y-up already (the GLB writer is told, see scripts/build-mg.sh).
-    if (line.find("--model pixal3d") != std::string::npos) setenv("PAUL3D_YUP_NATIVE", "1", 1);
-    else unsetenv("PAUL3D_YUP_NATIVE");
-    log_memory("before");
-    {
-        std::lock_guard<std::mutex> lk(g_mg.mu);
-        g_mg.job    = name;
-        g_mg.stage  = "starting";
-        g_mg.job_t0 = mg_now();
-    }
-    const auto t0 = std::chrono::steady_clock::now();
-    const int  rc = args.size() > 1 ? trellis_cli_main(static_cast<int>(args.size()), argv.data()) : 2;
-    const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-    log_memory("after");
-    std::printf("paul3d: JOB %s DONE rc=%d in %.1f s\n", name.c_str(), rc, secs);
-    {
-        std::lock_guard<std::mutex> lk(g_mg.mu);
-        g_mg.job.clear();
-        g_mg.stage = "idle";
-        g_mg.progress.clear();
-    }
-    std::ofstream(std::string(kJobs) + "/" + name + ".result") << rc << ' ' << secs << '\n';
-    return rc;
-}
-
-// The first *.job in /data/PAUL3D/jobs by name, or "".
 std::vector<std::string> job_files() {
     std::vector<std::string> names;
     if (DIR * d = opendir(kJobs)) {
@@ -427,7 +235,7 @@ void run_text_job(mg::TextEngine & eng, const std::string & name) {
     }
     {
         std::lock_guard<std::mutex> lk(g_mg.mu);
-        g_mg.job = id; g_mg.stage = "texto: " + eng.model_name(); g_mg.job_t0 = mg_now();
+        g_mg.job = id; g_mg.stage = "respondendo: " + eng.model_name(); g_mg.job_t0 = mg_now();
     }
     std::printf("paul3d: TEXT %s START (%zu messages, max %d tokens)\n", id.c_str(), job.messages.size(), job.max_tokens);
     const double t0 = mg_now();
@@ -445,7 +253,7 @@ void run_text_job(mg::TextEngine & eng, const std::string & name) {
     const double secs = mg_now() - t0;
     std::printf("paul3d: TEXT %s DONE ok=%d %zu tokens in %.1f s (%.1f tokens/s)\n", id.c_str(), ok, pieces, secs, secs > 0 ? pieces / secs : 0.0);
     std::lock_guard<std::mutex> lk(g_mg.mu);
-    g_mg.job.clear(); g_mg.stage = "texto: pronto"; g_mg.progress.clear();
+    g_mg.job.clear(); g_mg.progress.clear();
 }
 
 // ---- downloads: a .dljob names a group of ps5/models.txt; its files come from Hugging Face (mg_download, mg_fetch).
@@ -512,140 +320,103 @@ void run_download(const std::string & name) {
     unlink(cancel.c_str());
     std::printf("paul3d: DOWNLOAD %s %s in %.0f s%s%s\n", id.c_str(), st.value("state", "").c_str(), mg_now() - t0, ok ? "" : ": ", ok ? "" : err.c_str());
     std::lock_guard<std::mutex> lk(g_mg.mu);
-    g_mg.job.clear(); g_mg.stage = "idle"; g_mg.progress.clear();
+    g_mg.job.clear(); g_mg.progress.clear();
 }
 
-// The text mode: the model is loaded once and answers the text requests one after the other, until another kind of
-// job comes or nothing comes for a while (mg::text_mode_decision). True: the title should start over (memory used).
-bool text_mode() {
-    mkdir(kMgText, 0777);
-    mkdir((std::string(kDir) + "/models/text").c_str(), 0777);
-    const std::vector<std::string> dirs{std::string(kDir) + "/models/text", "/data/PS5LM/models"};
-    // The model the first request asks for (or the default): a request for another one ends the mode, and the next
-    // start loads that one (two models do not fit, and freed memory does not come back).
-    auto asked = [&](const std::string & name) {
-        mg::TextJob j; std::string e;
-        mg::parse_text_job(slurp_file(std::string(kJobs) + "/" + name), j, e);
-        return j;
-    };
-    const std::string first = next_job();
-    const mg::TextJob first_job = mg::kind_of(first) == mg::JobKind::text ? asked(first) : mg::TextJob{};
-    const std::string model = mg::resolve_text_model(dirs, first_job.model);
-    auto fail_first = [&](const std::string & error) {
-        const std::string name = next_job();
-        if (mg::kind_of(name) != mg::JobKind::text) return;
-        const std::string id = name.substr(0, name.size() - 8);
-        mg::write_text_done(kMgText, id, "failed", error);
-        unlink((std::string(kJobs) + "/" + name).c_str());
-    };
-    if (model.empty()) {
-        std::printf("paul3d: text request but no model %s in models/text or /data/PS5LM/models\n", first_job.model.c_str());
-        fail_first(first_job.model.empty() ? "missing_model" : "no such model: " + first_job.model);
-        return false;
-    }
-    {
-        std::lock_guard<std::mutex> lk(g_mg.mu);
-        g_mg.stage = "texto: carregando " + model.substr(model.find_last_of('/') + 1); g_mg.job_t0 = mg_now();
-    }
-    const double t0 = mg_now();
-    mg::TextEngine eng;
-    std::string err;
-    if (!eng.load(model, 8192, (int) paul3d_threads(), err)) {
-        std::printf("paul3d: text model %s: %s\n", model.c_str(), err.c_str());
-        fail_first(err);
-        return true;
-    }
-    std::printf("paul3d: text model %s loaded in %.1f s\n", model.c_str(), mg_now() - t0);
-    log_memory("text model loaded");
-    double idle0 = mg_now();
-    struct stat st;
-    while (stat(kQuit, &st) != 0) {
-        const std::string name = next_job();
-        const mg::JobKind kind = mg::kind_of(name);
-        if (kind == mg::JobKind::text) {
-            if (mg::needs_other_model(asked(name), model, dirs)) { std::printf("paul3d: %s asks for another model\n", name.c_str()); break; }
-            run_text_job(eng, name); idle0 = mg_now(); continue;
-        }
-        if (mg::text_mode_decision(kind, mg_now() - idle0) == mg::Leave::restart) break;
-        usleep(300000);
-    }
-    std::printf("paul3d: text mode ends after %.0f s idle\n", mg_now() - idle0);
-    return true;
-}
-
-// Jobs one after the other, until the quit file or until the pool is too low for another (freed memory does not
-// come back to the pool on the console; the title then ends itself and the next start has all of it).
+// The worker of the text-only title: the text model is loaded when the title starts (the one last asked for) and stays
+// loaded; requests are answered one after the other, downloads run in between. A request for another model makes the
+// title start over with that one (two models do not fit, and freed GPU memory does not come back to the pool).
 void * run(void *) {
     std::printf("paul3d: paul3d_threads=%u hardware_concurrency=%u\n", paul3d_threads(), std::thread::hardware_concurrency());
     for (size_t i = 0; i < ggml_backend_dev_count(); i++) {
         std::printf("paul3d: device %zu: %s\n", i, ggml_backend_dev_name(ggml_backend_dev_get(i)));
     }
     mkdir(kJobs, 0777);
-    mkdir("/data/PAUL3D/out", 0777);
     mkdir(kMgText, 0777);
-    // A job still marked running was in the title when it went away (a crash, the console): failed.
-    if (DIR * d = opendir(kJobs)) {
-        std::vector<std::string> left;
-        while (dirent * e = readdir(d)) {
-            const std::string n = e->d_name;
-            if (n.size() > 8 && n.compare(n.size() - 8, 8, ".running") == 0) left.push_back(n.substr(0, n.size() - 8));
-            if (n.size() > 10 && n.compare(n.size() - 10, 10, ".dlrunning") == 0) {
-                const std::string id = n.substr(0, n.size() - 10);
-                auto st = nlohmann::json::parse(slurp_file(std::string(kMgDownloads) + "/" + id + ".json"), nullptr, false);
-                if (!st.is_object()) st = {{"id", id}};
-                st["state"] = "failed"; st["error"] = "interrompido quando o app fechou; peça de novo para continuar de onde parou";
-                save_download(st);
-                unlink((std::string(kJobs) + "/" + n).c_str());
-            }
-            if (n.size() > 12 && n.compare(n.size() - 12, 12, ".textrunning") == 0) {
-                mg::write_text_done(kMgText, n.substr(0, n.size() - 12), "failed", "the title ended while answering");
-                unlink((std::string(kJobs) + "/" + n).c_str());
-            }
+    mkdir((std::string(kDir) + "/models").c_str(), 0777);
+    mkdir((std::string(kDir) + "/models/text").c_str(), 0777);
+    // A request or a download still marked running was in the title when it went away (a crash, the console).
+    for (const auto & n : job_files()) {
+        if (n.size() > 10 && n.compare(n.size() - 10, 10, ".dlrunning") == 0) {
+            const std::string id = n.substr(0, n.size() - 10);
+            auto st = nlohmann::json::parse(slurp_file(std::string(kMgDownloads) + "/" + id + ".json"), nullptr, false);
+            if (!st.is_object()) st = {{"id", id}};
+            st["state"] = "failed"; st["error"] = "interrompido quando o app fechou; peça de novo para continuar de onde parou";
+            save_download(st);
+            unlink((std::string(kJobs) + "/" + n).c_str());
         }
-        closedir(d);
-        for (const auto & id : left) {
-            std::printf("paul3d: job %s was running when the title ended: marked failed\n", id.c_str());
-            rename((std::string(kJobs) + "/" + id + ".running").c_str(), (std::string(kJobs) + "/" + id + ".failed").c_str());
+        if (n.size() > 12 && n.compare(n.size() - 12, 12, ".textrunning") == 0) {
+            mg::write_text_done(kMgText, n.substr(0, n.size() - 12), "failed", "o app fechou enquanto respondia");
+            unlink((std::string(kJobs) + "/" + n).c_str());
         }
     }
+    const std::vector<std::string> dirs{std::string(kDir) + "/models/text", "/data/PS5LM/models"};
+    const std::string pref = std::string(kDir) + "/text-model.txt";
+    auto asked = [&](const std::string & name) {
+        mg::TextJob j; std::string e;
+        mg::parse_text_job(slurp_file(std::string(kJobs) + "/" + name), j, e);
+        return j;
+    };
+    auto fail_job = [&](const std::string & name, const std::string & error) {
+        mg::write_text_done(kMgText, name.substr(0, name.size() - 8), "failed", error);
+        unlink((std::string(kJobs) + "/" + name).c_str());
+    };
+    auto set_stage = [](const std::string & st) { std::lock_guard<std::mutex> lk(g_mg.mu); g_mg.stage = st; };
+    std::unique_ptr<mg::TextEngine> eng;
+    std::string loaded, load_err;
+    auto load = [&](const std::string & path) {
+        const std::string name = path.substr(path.find_last_of('/') + 1);
+        set_stage("carregando " + name);
+        { std::lock_guard<std::mutex> lk(g_mg.mu); g_mg.job_t0 = mg_now(); }
+        const double t0 = mg_now();
+        eng.reset(new mg::TextEngine);
+        // 4096 tokens of context and a batch of 512: a part's request, its answer and up to three fixes fit, and the
+        // compute buffers stay small, which a 27B model (9.8 GB of a pool of 11.4 GiB) needs.
+        if (!eng->load(path, 4096, (int) paul3d_threads(), load_err)) {
+            std::printf("paul3d: text model %s: %s\n", path.c_str(), load_err.c_str());
+            eng.reset();
+            set_stage("falha ao carregar " + name);
+            return false;
+        }
+        loaded = path;
+        mg::remember_text_model(pref, name);
+        std::printf("paul3d: text model %s loaded in %.1f s\n", path.c_str(), mg_now() - t0);
+        log_memory("text model loaded");
+        set_stage("pronto: " + name);
+        return true;
+    };
+    bool load_failed = false;
+    if (const std::string p = mg::preferred_text_model(dirs, pref); !p.empty()) load_failed = !load(p);
+    else set_stage("sem modelo de texto: baixe em Modelos");
     struct stat st;
     while (stat(kQuit, &st) != 0) {
-        const std::string job = g_mg.viewing ? "" : next_job();
-        if (job.empty()) {
-            sleep(g_mg.viewing ? 1 : 2);
-            continue;
-        }
-        const mg::JobKind kind = mg::kind_of(job);
+        const std::string name = next_job();
+        const mg::JobKind kind = mg::kind_of(name);
         if (kind == mg::JobKind::text) {
-            if (!text_mode()) continue;  // no model: nothing was loaded, no need to start over
-            g_restart = stat(kQuit, &st) != 0;
-            break;
-        }
-        if (kind == mg::JobKind::download) {  // no restart after a download: no model was loaded
-            run_download(job);
+            const mg::TextJob j = asked(name);
+            if (!eng) {
+                const std::string path = mg::resolve_text_model(dirs, j.model);
+                if (path.empty()) { fail_job(name, j.model.empty() ? "missing_model" : "no such model: " + j.model); continue; }
+                // One try a start: after a failed load the pool is not clean, and starting over to try again could
+                // repeat for ever. The request says why; the next start tries again.
+                if (load_failed || !load(path)) { fail_job(name, "não foi possível carregar o modelo: " + load_err); load_failed = true; continue; }
+            }
+            if (mg::text_mode_next(kind, mg::needs_other_model(j, loaded, dirs)) == mg::Next::restart) {
+                std::printf("paul3d: %s asks for %s: starting over with it\n", name.c_str(), j.model.c_str());
+                mg::remember_text_model(pref, j.model);
+                g_restart = true;
+                break;
+            }
+            run_text_job(*eng, name);
+            set_stage("pronto: " + eng->model_name());
             continue;
         }
-        const std::string path = std::string(kJobs) + "/" + job;
-        // An FTP upload creates the file before it fills it: an empty one is read again a few times, then left.
-        std::string line;
-        for (int tries = 0; tries < 8 && line.empty(); tries++) {
-            if (tries > 0) usleep(500000);
-            std::ifstream in(path);
-            std::getline(in, line);
-        }
-        if (line.empty()) {
-            sleep(2);
+        if (kind == mg::JobKind::download) {
+            run_download(name);
+            set_stage(eng ? "pronto: " + eng->model_name() : "sem modelo carregado");
             continue;
         }
-        // Claim it first: a job that crashes the title is not run again by the next start.
-        const std::string name = job.substr(0, job.size() - 4), base = std::string(kJobs) + "/" + name;
-        rename(path.c_str(), (base + ".running").c_str());
-        const int rc = run_job(name, line);
-        rename((base + ".running").c_str(), (base + (rc == 0 ? ".done" : ".failed")).c_str());
-        // A second job in the same process runs 4 to 9 times slower (the GPU stages too), so the title starts
-        // over after every job; the queue is on disk and the next start picks it up. Asked to quit during the job: no restart.
-        g_restart = stat(kQuit, &st) != 0;
-        break;
+        usleep(300000);
     }
     std::printf("paul3d: worker ends\n");
     std::fflush(nullptr);
@@ -702,8 +473,8 @@ int main() {
     pthread_t web;
     pthread_create(&web, &wattr, [](void *) -> void * { mg_web_run(7870); return nullptr; }, nullptr);
 
-    // The screen (or, without one, a pause) until the title ends itself, which it does when asked (the quit file) or
-    // after a job, and never in the middle of one.
+    // The screen (or, without one, a pause) until the title ends itself: when asked (the quit file), or to load
+    // another text model.
     double next_pool = 0;
     double next_out = 0;
     while (!g_done) {
@@ -731,7 +502,7 @@ int main() {
         usleep(200000);
     }
     if (g_restart) {
-        std::printf("paul3d: restarting for the next job\n");
+        std::printf("paul3d: restarting to load another text model\n");
         std::fflush(nullptr);
         usleep(1500000);  // the log thread copies the last lines
         const char * none[] = {nullptr};
