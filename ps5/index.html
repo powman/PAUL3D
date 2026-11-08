@@ -506,7 +506,7 @@ async function loadModels(){
     if(!row){
       row=document.createElement('div'); row.className='mg'; row.dataset.g=g.group;
       row.innerHTML=`<div class="top"><b>${esc(g.title)}</b><span class="sz"></span><span class="st"></span></div>
-        <div class="cap" style="margin:0">${esc(USE[g.needed_for]||'')}</div>
+        <div class="cap" style="margin:0">${esc(USE[g.needed_for]||'')}<span class="inuse"></span></div>
         <div class="bar" hidden><i></i></div>
         <div class="act"><label><input type="checkbox" class="lic"> Li a <a target="_blank" rel="noopener" href="${esc(g.licence)}">licença</a></label>
           <button class="btn sec sm get" type="button" disabled>Baixar</button><button class="btn sec sm stop" type="button" hidden>Cancelar</button><span class="info"></span></div>
@@ -527,7 +527,9 @@ async function loadModels(){
     row.dataset.dl=active?d.id:'';
     row.querySelector('.sz').textContent=GB(g.size);
     const st=row.querySelector('.st');
-    const [txt,cls]=g.installed?['Instalado','ok']:active?[{queued:'Na fila',downloading:'Baixando',verifying:'Conferindo'}[d.state],'run']
+    const other=g.needed_for==='text'&&!g.installed&&(cat.text_models||[]).length>0;
+    row.querySelector('.inuse').textContent=g.needed_for==='text'&&cat.text_default?` · em uso: ${cat.text_default}`:'';
+    const [txt,cls]=g.installed?['Instalado','ok']:other&&!active?['Outro modelo em uso','ok']:active?[{queued:'Na fila',downloading:'Baixando',verifying:'Conferindo'}[d.state],'run']
       :g.have>0?['Pela metade','']:['Não instalado',''];
     st.textContent=txt; st.className='st '+cls;
     const bar=row.querySelector('.bar'); bar.hidden=!(active||(!g.installed&&g.have>0));

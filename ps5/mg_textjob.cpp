@@ -33,6 +33,10 @@ bool parse_text_job(const std::string & text, TextJob & out, std::string & err) 
     }
     if (chars > kTextJobMaxChars) { err = "the messages are longer than 200000 characters"; return false; }
     if (j.contains("max_tokens") && j["max_tokens"].is_number()) out.max_tokens = std::clamp(j["max_tokens"].get<int>(), 1, 8192);
+    if (j.contains("model") && j["model"].is_string()) {
+        out.model = j["model"];
+        if (out.model.find('/') != std::string::npos || out.model.find("..") != std::string::npos) { err = "model is a file name"; return false; }
+    }
     if (j.contains("temperature") && j["temperature"].is_number()) out.temperature = std::clamp(j["temperature"].get<float>(), 0.0f, 2.0f);
     return true;
 }
@@ -67,6 +71,35 @@ std::string find_text_model(const std::vector<std::string> & dirs) {
         if (!names.empty()) { std::sort(names.begin(), names.end()); return names.front(); }
     }
     return "";
+}
+
+std::vector<TextModel> list_text_models(const std::vector<std::string> & dirs) {
+    std::vector<TextModel> out;
+    for (const auto & d : dirs) {
+        if (DIR * h = opendir(d.c_str())) {
+            while (dirent * e = readdir(h)) {
+                const std::string n = e->d_name;
+                struct stat st;
+                if (n.size() <= 5 || n.compare(n.size() - 5, 5, ".gguf") != 0 || stat((d + "/" + n).c_str(), &st) != 0 || !S_ISREG(st.st_mode)) continue;
+                if (std::none_of(out.begin(), out.end(), [&](const TextModel & m) { return m.name == n; })) out.push_back({n, d + "/" + n});
+            }
+            closedir(h);
+        }
+    }
+    std::sort(out.begin(), out.end(), [](const TextModel & a, const TextModel & b) { return a.name < b.name; });
+    return out;
+}
+
+std::string resolve_text_model(const std::vector<std::string> & dirs, const std::string & name) {
+    if (name.empty()) return find_text_model(dirs);
+    for (const auto & m : list_text_models(dirs)) if (m.name == name) return m.path;
+    return "";
+}
+
+bool needs_other_model(const TextJob & job, const std::string & loaded, const std::vector<std::string> & dirs) {
+    if (job.model.empty()) return false;
+    const std::string want = resolve_text_model(dirs, job.model);
+    return !want.empty() && want != loaded;
 }
 
 std::string text_status(const std::string & jobs, const std::string & dir, const std::string & id) {

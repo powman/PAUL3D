@@ -24,6 +24,31 @@ int main() {
     t("too long", !mg::parse_text_job(R"({"messages":[{"role":"user","content":")" + big + R"("}]})", j, err) && err.find("200000") != std::string::npos, err);
     t("max_tokens clamped", mg::parse_text_job(R"({"messages":[{"role":"user","content":"u"}],"max_tokens":999999})", j, err) && j.max_tokens == 8192);
 
+    t("model field read", mg::parse_text_job(R"({"messages":[{"role":"user","content":"u"}],"model":"Qwen3.8-27B.gguf"})", j, err) && j.model == "Qwen3.8-27B.gguf", err);
+    t("no model field: empty", mg::parse_text_job(R"({"messages":[{"role":"user","content":"u"}]})", j, err) && j.model.empty());
+    t("model with a path is refused", !mg::parse_text_job(R"({"messages":[{"role":"user","content":"u"}],"model":"../x.gguf"})", j, err) && err.find("model") != std::string::npos, err);
+
+    {   // installed text models: both folders, by name, PAUL3D's own first when a name is in both
+        fs::path m = fs::temp_directory_path() / "paul3d-models"; fs::remove_all(m);
+        fs::create_directories(m / "own"); fs::create_directories(m / "ps5lm");
+        std::ofstream(m / "own" / "b.gguf") << "x"; std::ofstream(m / "ps5lm" / "a.gguf") << "x"; std::ofstream(m / "ps5lm" / "b.gguf") << "x";
+        std::ofstream(m / "own" / "notes.txt") << "x";
+        const std::vector<std::string> dirs{(m / "own").string(), (m / "ps5lm").string()};
+        auto list = mg::list_text_models(dirs);
+        t("list: two names, sorted", list.size() == 2 && list[0].name == "a.gguf" && list[1].name == "b.gguf");
+        t("list: own folder wins a shared name", list.size() == 2 && list[1].path == (m / "own" / "b.gguf").string());
+        t("resolve: a listed name", mg::resolve_text_model(dirs, "a.gguf") == (m / "ps5lm" / "a.gguf").string());
+        t("resolve: empty name is the default", mg::resolve_text_model(dirs, "") == mg::find_text_model(dirs));
+        t("resolve: unknown name", mg::resolve_text_model(dirs, "zzz.gguf").empty());
+        mg::TextJob want; want.model = "a.gguf";
+        t("other model: a different one is asked", mg::needs_other_model(want, (m / "own" / "b.gguf").string(), dirs));
+        want.model = "b.gguf";
+        t("other model: the loaded one", !mg::needs_other_model(want, (m / "own" / "b.gguf").string(), dirs));
+        want.model = "";
+        t("other model: no name keeps the loaded one", !mg::needs_other_model(want, (m / "ps5lm" / "a.gguf").string(), dirs));
+        fs::remove_all(m);
+    }
+
     fs::path d = fs::temp_directory_path() / "paul3d-textjob"; fs::remove_all(d);
     const std::string jobs = (d / "jobs").string(), text = (d / "text").string();
     fs::create_directories(jobs); fs::create_directories(text);

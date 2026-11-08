@@ -45,13 +45,15 @@ class H(http.server.BaseHTTPRequestHandler):
         if p == "/api/auth": return self.send(200, {"required": False, "ok": True})
         if p == "/api/catalog":
             with lock:
-                return self.send(200, {"free": 120e9, "groups": [{"group": g, "title": t, "size": s, "installed": installed[g],
+                tm = ["Qwen3.8-27B-UD-Q2_K_XL.gguf"] + (["Qwen3.5-9B-Q4_K_M.gguf"] if installed["text-qwen35-9b"] else [])
+                return self.send(200, {"free": 120e9, "text_models": sorted(tm), "text_default": sorted(tm)[0], "groups": [{"group": g, "title": t, "size": s, "installed": installed[g],
                     "have": s if installed[g] else next((d["done"] for d in downloads.values() if d["group"] == g), 0),
                     "licence": l, "needed_for": u} for g, (t, s, u, l) in GROUPS.items()]})
         if p == "/api/downloads":
             with lock: return self.send(200, sorted(downloads.values(), key=lambda d: d["id"], reverse=True))
         if p == "/v1/models":
-            return self.send(200, {"object": "list", "data": [{"id": "Qwen3.5-9B-Q4_K_M.gguf", "object": "model"}] if installed["text-qwen35-9b"] else []})
+            ids = sorted(["Qwen3.8-27B-UD-Q2_K_XL.gguf"] + (["Qwen3.5-9B-Q4_K_M.gguf"] if installed["text-qwen35-9b"] else []))
+            return self.send(200, {"object": "list", "data": [{"id": i, "object": "model"} for i in ids]})
         if p.startswith("/api/text/"):
             t = texts.get(p.rsplit("/", 1)[1])
             if not t: return self.send(404, {"error": "no such text request"})
@@ -80,7 +82,7 @@ class H(http.server.BaseHTTPRequestHandler):
                 d["state"] = "cancelled"
             return self.send(200, {"ok": True})
         if p == "/api/text":
-            if not installed["text-qwen35-9b"]: return self.send(409, {"error": "missing_model"})
+            open(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".last-text-request.json"), "wb").write(body)
             tid = "t%d" % (len(texts) + 1)
             texts[tid] = {"id": tid, "polls": 0}
             return self.send(202, {"id": tid})

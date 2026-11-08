@@ -72,9 +72,26 @@ await ta('paul3dAsk: a failed answer carries its error', async () => {
   const srv = fakeServer({get: [json(200, {status: 'failed', text: '', error: 'the prompt is longer than the context'})]});
   await assert.rejects(paul3dAsk([], {fetchFn: srv.fetchFn, sleep: noSleep}), /longer than the context/);
 });
-await ta('paul3dAsk: gives up after 60 s without the console', async () => {
+await ta('paul3dAsk: waits 4 min without the console (a big model loading)', async () => {
   let clock = 0;
-  const errs = Array.from({length: 200}, () => new TypeError('Failed to fetch'));
+  const errs = Array.from({length: 160}, () => new TypeError('Failed to fetch'));  // 160 x 1.5 s = 4 min
+  const srv = fakeServer({get: [...errs, json(200, {status: 'done', text: 'ok'})]});
+  assert.equal(await paul3dAsk([], {fetchFn: srv.fetchFn, sleep: async ms => { clock += ms; }, now: () => clock}), 'ok');
+});
+await ta('paul3dAsk: gives up after 5 min without the console', async () => {
+  let clock = 0;
+  const errs = Array.from({length: 400}, () => new TypeError('Failed to fetch'));
   const srv = fakeServer({get: errs});
-  await assert.rejects(paul3dAsk([], {fetchFn: srv.fetchFn, sleep: async ms => { clock += ms; }, now: () => clock}), /console/);
+  await assert.rejects(paul3dAsk([], {fetchFn: srv.fetchFn, sleep: async ms => { clock += ms; }, now: () => clock}), /5 min/);
+});
+await ta('paul3dAsk: the chosen model goes in the request', async () => {
+  let sent = null;
+  const fetchFn = async (url, opts = {}) => {
+    if (opts.method === 'POST') { sent = JSON.parse(opts.body); return json(202, {id: 't1'}); }
+    return json(200, {status: 'done', text: 'ok'});
+  };
+  await paul3dAsk([{role: 'user', content: 'x'}], {fetchFn, sleep: noSleep, model: 'Qwen3.8-27B-UD-Q2_K_XL.gguf'});
+  assert.equal(sent.model, 'Qwen3.8-27B-UD-Q2_K_XL.gguf');
+  await paul3dAsk([{role: 'user', content: 'x'}], {fetchFn, sleep: noSleep});
+  assert.equal('model' in sent, false);
 });

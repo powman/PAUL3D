@@ -109,6 +109,7 @@ details.cfg[open] summary{margin-bottom:.6rem}
         <label><input type="radio" name="srv" value="paul3d"> PAUL3D (este console)</label>
         <label><input type="radio" name="srv" value="openai"> Outro servidor (API da OpenAI)</label>
       </div>
+      <label id="p3modelrow">Modelo do console<select id="p3model"></select></label>
       <p class="hint" id="p3hint">A IA de texto do próprio console: o modelo fica no PAUL3D (baixe em <a href="/#modelos">Modelos</a>, na página inicial).</p>
       <div id="oaifields">
       <label>Endereço (API da OpenAI)<input id="url" type="url" spellcheck="false" placeholder="http://192.168.1.50:8081/v1"></label>
@@ -204,23 +205,23 @@ function sseDeltas(buf){
   return out;
 }
 // The console's own text engine (PAUL3D): POST /api/text, then GET /api/text/<id> until it is done. The title starts over
-// when it leaves its text mode, so its server can be gone for a few seconds: requests are tried again for up to 60 s
-// after the last answer. No model: Error('MISSING_MODEL').
+// when it leaves its text mode, and a big model (Qwen3.8 27B: about 2 minutes) keeps it busy while it loads: requests are
+// tried again for up to 5 minutes after the last answer. No model: Error('MISSING_MODEL').
 async function paul3dAsk(messages, {fetchFn = (...a) => fetch(...a), sleep = ms => new Promise(r => setTimeout(r, ms)),
-    now = () => Date.now(), onPartial = () => {}, base = '', signal} = {}) {
+    now = () => Date.now(), onPartial = () => {}, base = '', signal, model = ''} = {}) {
   let lastOk = now();
   const tryHard = async f => {
     for (;;) {
       try { const r = await f(); lastOk = now(); return r; }
       catch (e) {
         if (e && e.name === 'AbortError') throw e;
-        if (now() - lastOk > 60000) throw new Error('sem resposta do console há 60 s');
+        if (now() - lastOk > 300000) throw new Error('sem resposta do console há 5 min');
         await sleep(1500);
       }
     }
   };
   const post = await tryHard(() => fetchFn(base + '/api/text', {method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({messages, max_tokens: 4096, temperature: 0.2}), signal}));
+    body: JSON.stringify(Object.assign({messages, max_tokens: 4096, temperature: 0.2}, model ? {model} : {})), signal}));
   const pj = await post.json().catch(() => ({}));
   if (post.status === 409 && pj.error === 'missing_model') throw new Error('MISSING_MODEL');
   if (!post.ok) throw new Error(pj.error || 'HTTP ' + post.status);
@@ -249,7 +250,20 @@ if(!onPaul3d&&srvMode==='paul3d') srvMode='openai';
 function syncSrv(){
   for(const r of document.querySelectorAll('input[name=srv]')){ r.checked=r.value===srvMode; if(r.value==='paul3d') r.disabled=!onPaul3d; }
   $('oaifields').hidden=srvMode!=='openai'; $('p3hint').hidden=srvMode!=='paul3d'; $('help').hidden=srvMode!=='openai';
+  $('p3modelrow').hidden=srvMode!=='paul3d';
+  if(srvMode==='paul3d') loadP3Models();
 }
+// The text models installed on the console (GET /v1/models); the choice is kept in this browser. Changing it makes the
+// console load the other model (the title starts over: about 1 to 2 minutes for the first answer).
+async function loadP3Models(){
+  try{
+    const j=await (await fetch('/v1/models')).json(); const ids=(j.data||[]).map(m=>m.id);
+    const want=store.get('p3model');
+    $('p3model').innerHTML=ids.length?ids.map(i=>`<option>${i.replace(/[&<>"]/g,'')}</option>`).join(''):'<option value="">nenhum instalado</option>';
+    if(ids.includes(want)) $('p3model').value=want;
+  }catch(_){ /* the console is starting: the list comes on the next open */ }
+}
+$('p3model').addEventListener('change',()=>store.set('p3model',$('p3model').value));
 for(const r of document.querySelectorAll('input[name=srv]')) r.addEventListener('change',()=>{ srvMode=r.value; store.set('srv',srvMode); syncSrv(); $('testmsg').textContent=''; });
 syncSrv();
 for(const k of ['url','model','key']) $(k).addEventListener('change',()=>store.set(k,$(k).value.trim()));
@@ -287,8 +301,8 @@ let abort=null;
 async function ask(messages){
   abort=new AbortController();
   if(srvMode==='paul3d'){
-    pill('run','Na fila do console');
-    return paul3dAsk(messages,{signal:abort.signal,onPartial:text=>{ const c=extractCode(text); if(c) $('code').value=c; pill('run','Escrevendo'); }});
+    pill('run','Na fila do console (o 1º pedido carrega o modelo: até 2 min)');
+    return paul3dAsk(messages,{signal:abort.signal,model:$('p3model').value,onPartial:text=>{ const c=extractCode(text); if(c) $('code').value=c; pill('run','Escrevendo'); }});
   }
   const body={model:$('model').value.trim()||'default',messages,stream:true,temperature:0.2,max_tokens:4096,
     chat_template_kwargs:{enable_thinking:false}};

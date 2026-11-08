@@ -520,7 +520,17 @@ void run_download(const std::string & name) {
 bool text_mode() {
     mkdir(kMgText, 0777);
     mkdir((std::string(kDir) + "/models/text").c_str(), 0777);
-    const std::string model = mg::find_text_model({std::string(kDir) + "/models/text", "/data/PS5LM/models"});
+    const std::vector<std::string> dirs{std::string(kDir) + "/models/text", "/data/PS5LM/models"};
+    // The model the first request asks for (or the default): a request for another one ends the mode, and the next
+    // start loads that one (two models do not fit, and freed memory does not come back).
+    auto asked = [&](const std::string & name) {
+        mg::TextJob j; std::string e;
+        mg::parse_text_job(slurp_file(std::string(kJobs) + "/" + name), j, e);
+        return j;
+    };
+    const std::string first = next_job();
+    const mg::TextJob first_job = mg::kind_of(first) == mg::JobKind::text ? asked(first) : mg::TextJob{};
+    const std::string model = mg::resolve_text_model(dirs, first_job.model);
     auto fail_first = [&](const std::string & error) {
         const std::string name = next_job();
         if (mg::kind_of(name) != mg::JobKind::text) return;
@@ -529,8 +539,8 @@ bool text_mode() {
         unlink((std::string(kJobs) + "/" + name).c_str());
     };
     if (model.empty()) {
-        std::printf("paul3d: text request but no .gguf in models/text or /data/PS5LM/models\n");
-        fail_first("missing_model");
+        std::printf("paul3d: text request but no model %s in models/text or /data/PS5LM/models\n", first_job.model.c_str());
+        fail_first(first_job.model.empty() ? "missing_model" : "no such model: " + first_job.model);
         return false;
     }
     {
@@ -552,7 +562,10 @@ bool text_mode() {
     while (stat(kQuit, &st) != 0) {
         const std::string name = next_job();
         const mg::JobKind kind = mg::kind_of(name);
-        if (kind == mg::JobKind::text) { run_text_job(eng, name); idle0 = mg_now(); continue; }
+        if (kind == mg::JobKind::text) {
+            if (mg::needs_other_model(asked(name), model, dirs)) { std::printf("paul3d: %s asks for another model\n", name.c_str()); break; }
+            run_text_job(eng, name); idle0 = mg_now(); continue;
+        }
         if (mg::text_mode_decision(kind, mg_now() - idle0) == mg::Leave::restart) break;
         usleep(300000);
     }

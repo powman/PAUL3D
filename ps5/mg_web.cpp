@@ -336,9 +336,8 @@ static void save_download_state(const nlohmann::json & j) {
 }
 
 // The text model the worker would load ("" when none): PAUL3D's models/text, then PS5LM's models.
-static std::string text_model() {
-    return mg::find_text_model({std::string(kMgDir) + "/models/text", "/data/PS5LM/models"});
-}
+static std::vector<std::string> text_dirs() { return {std::string(kMgDir) + "/models/text", "/data/PS5LM/models"}; }
+static std::string text_model() { return mg::find_text_model(text_dirs()); }
 
 // A text request onto the queue: (202, {"id"}) or (4xx, {"error"}).
 static std::pair<int, std::string> queue_text(const std::string & body) {
@@ -346,6 +345,7 @@ static std::pair<int, std::string> queue_text(const std::string & body) {
     std::string err;
     if (!mg::parse_text_job(body, job, err)) return {400, nlohmann::json{{"error", err}}.dump()};
     if (text_model().empty()) return {409, "{\"error\":\"missing_model\"}"};
+    if (!job.model.empty() && mg::resolve_text_model(text_dirs(), job.model).empty()) return {404, nlohmann::json{{"error", "no such model: " + job.model}}.dump()};
     static std::atomic<int> counter{0};
     char stamp[32];
     const time_t now = time(nullptr);
@@ -558,7 +558,11 @@ void mg_web_run(int port) {
             groups.push_back({{"group", g.group}, {"title", group_title(g.group)}, {"size", g.total}, {"have", g.have},
                               {"installed", g.installed}, {"licence", licence}, {"needed_for", group_use(g.group)}});
         }
-        res.set_content(nlohmann::json{{"groups", groups}, {"free", mg::free_bytes(kMgDir)}}.dump(), "application/json");
+        nlohmann::json names = nlohmann::json::array();
+        for (const auto & m : mg::list_text_models(text_dirs())) names.push_back(m.name);
+        const std::string def = text_model();
+        res.set_content(nlohmann::json{{"groups", groups}, {"free", mg::free_bytes(kMgDir)}, {"text_models", names},
+                                       {"text_default", def.empty() ? "" : def.substr(def.find_last_of('/') + 1)}}.dump(), "application/json");
     });
     svr.Post("/api/downloads", [](const httplib::Request & req, httplib::Response & res) {
         auto fail = [&](int code, const std::string & msg) { res.status = code; res.set_content(nlohmann::json{{"error", msg}}.dump(), "application/json"); };
@@ -618,14 +622,20 @@ void mg_web_run(int port) {
     });
     svr.Get("/v1/models", [](const httplib::Request &, httplib::Response & res) {
         nlohmann::json j = {{"object", "list"}, {"data", nlohmann::json::array()}};
-        const std::string m = text_model();
-        if (!m.empty()) j["data"].push_back({{"id", m.substr(m.find_last_of('/') + 1)}, {"object", "model"}});
+        for (const auto & m : mg::list_text_models(text_dirs())) j["data"].push_back({{"id", m.name}, {"object", "model"}});
         res.set_content(j.dump(), "application/json");
     });
     // OpenAI's chat completions for other programs: queued like /api/text, answered when the text is done (no
     // streaming of pieces; with "stream" the whole answer comes as one event).
     svr.Post("/v1/chat/completions", [](const httplib::Request & req, httplib::Response & res) {
-        const auto r = queue_text(req.body);
+        // OpenAI clients name a model of their own ("gpt-4o"): only an installed one is kept, else the default.
+        std::string body = req.body;
+        auto bj = nlohmann::json::parse(body, nullptr, false);
+        if (bj.is_object() && bj.contains("model") && (!bj["model"].is_string() || mg::resolve_text_model(text_dirs(), bj["model"].get<std::string>()).empty())) {
+            bj.erase("model");
+            body = bj.dump();
+        }
+        const auto r = queue_text(body);
         auto oai_error = [&](int code, const std::string & msg) {
             res.status = code;
             res.set_content(nlohmann::json{{"error", {{"message", msg}, {"type", msg == "missing_model" ? "missing_model" : "invalid_request_error"}}}}.dump(), "application/json");
@@ -642,10 +652,10 @@ void mg_web_run(int port) {
             usleep(200000);
         }
         if (!st.is_object() || st["status"] != "done") return oai_error(504, st.is_object() && st.contains("error") ? st["error"].get<std::string>() : "timeout");
-        const std::string model = text_model().substr(text_model().find_last_of('/') + 1);
-        const auto body = nlohmann::json::parse(req.body, nullptr, false);
+        std::string model = text_model().substr(text_model().find_last_of('/') + 1);
+        if (bj.is_object() && bj.contains("model")) model = bj["model"];
         const std::string text = st["text"];
-        if (body.is_object() && body.value("stream", false)) {
+        if (bj.is_object() && bj.value("stream", false)) {
             nlohmann::json chunk = {{"id", id}, {"object", "chat.completion.chunk"}, {"model", model},
                                     {"choices", {{{"index", 0}, {"delta", {{"role", "assistant"}, {"content", text}}}, {"finish_reason", "stop"}}}}};
             res.set_content("data: " + chunk.dump() + "\n\ndata: [DONE]\n\n", "text/event-stream");

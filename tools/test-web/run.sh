@@ -116,7 +116,8 @@ t "text: no model, /v1/models is empty"      '{"data":[],"object":"list"}' "$(cu
 mkdir -p /data/PS5LM/models; : > /data/PS5LM/models/z.gguf
 t "text: PS5LM's model counts"               202 "$(code -H "$J" -d "$ASK" $U/api/text)"
 rm -f /data/PAUL3D/jobs/*; mkdir -p /data/PAUL3D/models/text; : > /data/PAUL3D/models/text/q.gguf
-t "text: PAUL3D's own model first"           '{"data":[{"id":"q.gguf","object":"model"}],"object":"list"}' "$(curl -s $U/v1/models)"
+t "text: both folders listed"                '{"data":[{"id":"q.gguf","object":"model"},{"id":"z.gguf","object":"model"}],"object":"list"}' "$(curl -s $U/v1/models)"
+t "text: PAUL3D's own model is the default"  1   "$(curl -s $U/api/catalog | grep -c '"text_default":"q.gguf"')"
 TID=$(curl -s -H "$J" -d "$ASK" $U/api/text | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 t "text: accepted with an id"                1   "$([ -n "$TID" ] && echo 1 || echo 0)"
 t "text: the job file holds the messages"    1   "$(grep -c '"content":"hi"' /data/PAUL3D/jobs/$TID.textjob 2>/dev/null)"
@@ -131,7 +132,7 @@ printf 'cube(1);' > /data/PAUL3D/text/$TID.txt; printf '{"status":"done"}' > /da
 t "text: done"                               1   "$(curl -s $U/api/text/$TID | grep -c '"status":"done".*"text":"cube(1);"')"
 t "text: unknown id is 404"                  404 "$(code $U/api/text/t19990101-000000-0)"
 fake_worker() {  # answers the next .textjob after a second, as the title's worker would
-  sleep 1; f=$(ls /data/PAUL3D/jobs/*.textjob | head -1); id=$(basename "$f" .textjob)
+  sleep 1; f=$(ls /data/PAUL3D/jobs/*.textjob | head -1); id=$(basename "$f" .textjob); cp "$f" /data/PAUL3D/text/$id.req
   printf '%s' "$1" > /data/PAUL3D/text/$id.txt; printf '{"status":"done"}' > /data/PAUL3D/text/$id.textdone; rm -f "$f"; }
 rm -f /data/PAUL3D/jobs/*
 fake_worker 'sphere(5);' & fw=$!
@@ -173,6 +174,23 @@ t "downloads: cancel of an unknown id 404"   404 "$(code -X POST $U/api/download
 mkdir -p /data/PAUL3D/models/text; truncate -s 5680522464 /data/PAUL3D/models/text/Qwen3.5-9B-Q4_K_M.gguf
 t "catalog: a file in full is installed"     1   "$(curl -s $U/api/catalog | grep -o '{[^{}]*"group":"text-qwen35-9b"[^{}]*}' | grep -c '"installed":true')"
 t "download: an installed group is 409"      409 "$(code -H "$J" -d '{"group":"text-qwen35-9b","accept_license":true}' $U/api/downloads)"
+# ---- several text models: listed, chosen per request, shown in the catalogue
+rm -f /data/PAUL3D/jobs/*; mkdir -p /data/PAUL3D/models/text; : > /data/PAUL3D/models/text/Qwen3.8-27B-UD-Q2_K_XL.gguf
+t "models: all installed ones"               '{"data":[{"id":"Qwen3.5-9B-Q4_K_M.gguf","object":"model"},{"id":"Qwen3.8-27B-UD-Q2_K_XL.gguf","object":"model"},{"id":"z.gguf","object":"model"}],"object":"list"}' "$(curl -s $U/v1/models)"
+C=$(curl -s $U/api/catalog)
+t "catalog: the text models"                 1   "$(grep -c '"text_models":\["Qwen3.5-9B-Q4_K_M.gguf","Qwen3.8-27B-UD-Q2_K_XL.gguf","z.gguf"\]' <<<"$C")"
+t "catalog: the default one"                 1   "$(grep -c '"text_default":"Qwen3.5-9B-Q4_K_M.gguf"' <<<"$C")"
+MID=$(curl -s -H "$J" -d '{"model":"Qwen3.8-27B-UD-Q2_K_XL.gguf","messages":[{"role":"user","content":"hi"}]}' $U/api/text | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+t "text: a chosen model goes in the job"     1   "$(grep -c '"model":"Qwen3.8-27B-UD-Q2_K_XL.gguf"' /data/PAUL3D/jobs/$MID.textjob 2>/dev/null)"
+t "text: an unknown model is 404"            404 "$(code -H "$J" -d '{"model":"nope.gguf","messages":[{"role":"user","content":"hi"}]}' $U/api/text)"
+rm -f /data/PAUL3D/jobs/* /data/PAUL3D/text/*.req
+fake_worker 'ok' & fw=$!
+curl -s -m 20 -H "$J" -d '{"model":"gpt-4o","messages":[{"role":"user","content":"x"}]}' $U/v1/chat/completions > /dev/null
+wait $fw
+t "chat completions: a foreign model name is left out" 0 "$(cat /data/PAUL3D/text/*.req 2>/dev/null | grep -c 'gpt-4o')"
+t "chat completions: the request reached the worker" 1 "$(ls /data/PAUL3D/text/*.req 2>/dev/null | wc -l | awk '{print ($1>0)}')"
+rm -f /data/PAUL3D/models/text/Qwen3.8-27B-UD-Q2_K_XL.gguf /data/PAUL3D/jobs/*
+
 printf 'secret123\n' > /data/PAUL3D/api-key.txt
 t "catalog: needs the key"                   401 "$(code $U/api/catalog)"
 t "downloads: needs the key"                 401 "$(code $U/api/downloads)"

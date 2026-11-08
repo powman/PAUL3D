@@ -1,3 +1,18 @@
+## PAUL3D 0.6.1
+
+### Novo
+- **Escolha do modelo de texto.** Na "Peça por texto", em Servidor da IA, o campo "Modelo do console" lista todos os `.gguf` instalados
+  (em `/data/PAUL3D/models/text` e no PS5LM). Trocar o modelo faz o console carregar o outro (o app reinicia; o 1º pedido demora).
+- No painel Modelos, a IA de texto mostra qual modelo está em uso, também quando é um que você copiou por FTP.
+
+### Corrigido
+- A "Peça por texto" desistia depois de 60 s sem resposta, e um modelo grande (Qwen3.8 27B) leva uns 2 minutos para carregar.
+  Agora ela espera até 5 minutos.
+
+### Atenção
+- O Qwen3.8 27B (9,8 GB) ocupa quase toda a memória da GPU (sobram 0,1 GiB). Num teste o app reiniciou sozinho no 4º pedido seguido;
+  se acontecer, use o Qwen3.5 9B.
+
 ## PAUL3D 0.6.0
 
 ### Novo
